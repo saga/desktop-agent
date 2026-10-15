@@ -225,6 +225,7 @@ button, input, textarea { font: inherit; }
 .message-list .ant-bubble-placement-end .ant-bubble-content { background: #ebe9fc; color: #34324f; }
 .bubble-message { min-width: 80px; }
 .bubble-text { overflow-wrap: anywhere; }
+.bubble-plain-text { white-space: pre-wrap; }
 .bubble-text > *:first-child { margin-top: 0; }
 .bubble-text > *:last-child { margin-bottom: 0; }
 .bubble-text pre { max-width: 100%; overflow-x: auto; border: 1px solid #e8e8f1; border-radius: 9px; background: #f7f7fb; padding: 11px 13px; }

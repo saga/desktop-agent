@@ -2,7 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain, type IpcMainEvent, type WebContent
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import type {
   AgentEvent,
   AgentProvider,
@@ -318,6 +318,29 @@ function createWindow(): void {
   } else {
     void mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
   }
+
+  mainWindow.webContents.on('will-navigate', (event, navigationUrl) => {
+    let allowed = false;
+    if (process.env.ELECTRON_RENDERER_URL) {
+      try {
+        allowed = new URL(navigationUrl).origin === new URL(process.env.ELECTRON_RENDERER_URL).origin;
+      } catch {
+        allowed = false;
+      }
+    } else {
+      const rendererEntry = pathToFileURL(path.join(__dirname, '../renderer/index.html'));
+      try {
+        allowed = new URL(navigationUrl).pathname === rendererEntry.pathname
+          && new URL(navigationUrl).protocol === 'file:';
+      } catch {
+        allowed = false;
+      }
+    }
+    if (!allowed) {
+      event.preventDefault();
+      console.warn('[security] Blocked navigation away from the local application.', navigationUrl);
+    }
+  });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     // External navigation is intentionally not opened inside the privileged app window.

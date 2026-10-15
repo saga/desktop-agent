@@ -248,7 +248,7 @@ export default function App() {
         {item.content ? (
           item.role === 'assistant'
             ? <div className="bubble-text"><XMarkdown content={item.content} /></div>
-            : <div className="bubble-text">{item.content}</div>
+            : <div className="bubble-text bubble-plain-text">{item.content}</div>
         ) : item.status === 'streaming' ? (
           <span className="thinking-copy"><span className="thinking-dots" /> 正在思考…</span>
         ) : null}
