@@ -23,6 +23,13 @@ async function getClient(): Promise<CopilotClient> {
   return clientStart;
 }
 
+function isWorkspacePath(workingDirectory: string, candidate: string): boolean {
+  if (!candidate || candidate.startsWith('~')) return false;
+  const root = path.resolve(workingDirectory);
+  const target = path.resolve(root, candidate);
+  return target === root || target.startsWith(root + path.sep);
+}
+
 function permissionDetails(request: unknown): PermissionRequestInfo {
   const value = (request && typeof request === 'object' ? request : {}) as Record<string, unknown>;
   const kind = typeof value.kind === 'string' ? value.kind : 'tool';
@@ -43,7 +50,7 @@ function permissionDetails(request: unknown): PermissionRequestInfo {
     detail = String(value.intention ?? kind);
   }
 
-  return { provider: 'copilot', action: kind, description: detail.slice(0, 2400) };
+  return { provider: 'copilot', action: kind, description: detail.slice(0, 12000) };
 }
 
 export async function runCopilot(input: ProviderRunInput): Promise<ProviderRunResult> {
@@ -54,7 +61,16 @@ export async function runCopilot(input: ProviderRunInput): Promise<ProviderRunRe
     onPermissionRequest: async (request) => {
       // Read-only file access does not modify the workspace; changes and network
       // actions remain behind an explicit host confirmation.
-      if (request.kind === 'read') return { kind: 'approve-once' };
+      const requestRecord = request as unknown as Record<string, unknown>;
+      const requestedPath = typeof requestRecord.path === 'string' ? requestRecord.path : '';
+      const managedApprovalRequired = requestRecord.managedApprovalRequired === true;
+      if (
+        request.kind === 'read'
+        && !managedApprovalRequired
+        && isWorkspacePath(input.workingDirectory, requestedPath)
+      ) {
+        return { kind: 'approve-once' };
+      }
       const allowed = await input.requestPermission(permissionDetails(request));
       return { kind: allowed ? 'approve-once' : 'reject' };
     },

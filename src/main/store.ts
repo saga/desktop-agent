@@ -30,7 +30,10 @@ export class SessionStore {
       for (const session of parsed) {
         if (!session || typeof session.id !== 'string' || !Array.isArray(session.messages)) continue;
         for (const message of session.messages) {
-          if (message.status === 'streaming') message.status = 'stopped';
+          if (message.status === 'streaming') {
+            message.status = 'stopped';
+            if (!message.content.trim()) message.content = '应用上次退出时，这一轮任务尚未完成。';
+          }
         }
         this.sessions.set(session.id, session);
       }

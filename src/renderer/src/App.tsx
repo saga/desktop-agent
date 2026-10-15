@@ -1,14 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
-  Avatar,
   Button,
   Divider,
   Drawer,
   Input,
   Modal,
   Select,
-  Space,
   Switch,
   Tag,
   Tooltip,
@@ -16,8 +14,6 @@ import {
 import {
   AppstoreOutlined,
   ArrowUpOutlined,
-  CheckCircleOutlined,
-  ClockCircleOutlined,
   CodeOutlined,
   FolderOpenOutlined,
   GithubOutlined,
@@ -51,6 +47,11 @@ const INITIAL_SETTINGS: AgentSettings = {
   codebuddyModel: 'glm-5.3-flash',
   fallbackOnQuota: true,
   workspaceDirectory: '',
+};
+
+const bubbleRoles = {
+  assistant: { placement: 'start' as const },
+  user: { placement: 'end' as const },
 };
 
 const SUGGESTIONS = [
@@ -490,7 +491,7 @@ export default function App() {
                   <div className="conversation-intro-subtitle">对话记录自动保存在本机，可在下次启动时继续查看。</div>
                 </div>
               </div>
-              <Bubble.List className="message-list" items={bubbleItems} />
+              <Bubble.List className="message-list" items={bubbleItems} role={bubbleRoles} />
               <div ref={messagesEndRef} />
               {isRunning && activity ? (
                 <div className="activity-line">

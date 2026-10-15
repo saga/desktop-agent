@@ -1,4 +1,5 @@
 import { query } from '@tencent-ai/agent-sdk';
+import path from 'node:path';
 import type { PermissionRequestInfo } from '../../shared/contracts.js';
 import type { ProviderRunInput, ProviderRunResult } from './runtime.js';
 
@@ -13,6 +14,26 @@ const SAFE_READ_TOOLS = new Set([
   'TaskGet',
 ]);
 
+function isInsideWorkspace(root: string, candidate: string): boolean {
+  if (!candidate || candidate.startsWith('~')) return false;
+  const resolvedRoot = path.resolve(root);
+  const resolvedCandidate = path.resolve(resolvedRoot, candidate);
+  return resolvedCandidate === resolvedRoot || resolvedCandidate.startsWith(resolvedRoot + path.sep);
+}
+
+function readToolPathAllowed(root: string, toolName: string, toolInput: unknown): boolean {
+  if (!SAFE_READ_TOOLS.has(toolName)) return true;
+  if (!toolInput || typeof toolInput !== 'object') return true;
+  const input = toolInput as Record<string, unknown>;
+  for (const key of ['file_path', 'path', 'directory', 'search_path', 'cwd']) {
+    const candidate = input[key];
+    if (typeof candidate === 'string' && candidate.trim() && !isInsideWorkspace(root, candidate.trim())) {
+      return false;
+    }
+  }
+  return true;
+}
+
 function describeToolRequest(toolName: string, toolInput: unknown): PermissionRequestInfo {
   let detail = '';
   try {
@@ -23,7 +44,7 @@ function describeToolRequest(toolName: string, toolInput: unknown): PermissionRe
   return {
     provider: 'codebuddy',
     action: toolName,
-    description: (toolName + (detail ? '\n\n' + detail : '')).slice(0, 2400),
+    description: (toolName + (detail ? '\n\n' + detail : '')).slice(0, 12000),
   };
 }
 
@@ -38,8 +59,15 @@ export async function runCodeBuddy(input: ProviderRunInput): Promise<ProviderRun
     settingSources: [],
     maxTurns: 20,
     canUseTool: async (toolName: string, toolInput: unknown) => {
-      if (SAFE_READ_TOOLS.has(toolName)) {
+      if (SAFE_READ_TOOLS.has(toolName) && readToolPathAllowed(input.workingDirectory, toolName, toolInput)) {
         return { behavior: 'allow' as const, updatedInput: toolInput };
+      }
+      if (SAFE_READ_TOOLS.has(toolName)) {
+        return {
+          behavior: 'deny' as const,
+          message: '只允许读取当前工作目录内的文件。请将目标切换到所选工作区内。',
+          interrupt: false,
+        };
       }
       const allowed = await input.requestPermission(describeToolRequest(toolName, toolInput));
       return allowed
