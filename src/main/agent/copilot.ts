@@ -1,4 +1,5 @@
 import { CopilotClient } from '@github/copilot-sdk';
+import path from 'node:path';
 import type { PermissionRequestInfo } from '../../shared/contracts.js';
 import type { ProviderRunInput, ProviderRunResult } from './runtime.js';
 
