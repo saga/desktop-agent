@@ -224,7 +224,14 @@ button, input, textarea { font: inherit; }
 .message-list .ant-bubble:not(.ant-bubble-placement-end) .ant-bubble-content { background: #fff; border: 1px solid #e9e9f1; box-shadow: 0 3px 12px #25234405; }
 .message-list .ant-bubble-placement-end .ant-bubble-content { background: #ebe9fc; color: #34324f; }
 .bubble-message { min-width: 80px; }
-.bubble-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.bubble-text { overflow-wrap: anywhere; }
+.bubble-text > *:first-child { margin-top: 0; }
+.bubble-text > *:last-child { margin-bottom: 0; }
+.bubble-text pre { max-width: 100%; overflow-x: auto; border: 1px solid #e8e8f1; border-radius: 9px; background: #f7f7fb; padding: 11px 13px; }
+.bubble-text code { overflow-wrap: anywhere; }
+.bubble-text table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; }
+.bubble-text th, .bubble-text td { padding: 6px 9px; border: 1px solid #e4e4ef; }
+.bubble-text blockquote { margin: 12px 0; padding: 4px 12px; border-left: 3px solid #d3cff8; color: #77778f; }
 .bubble-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; padding-top: 7px; border-top: 1px solid #e7e7f1; color: #9999ad; font-size: 10px; }
 .thinking-copy { color: #7775a1; }
 .thinking-dots { display: inline-block; width: 6px; height: 6px; margin-right: 5px; background: #7e73d8; border-radius: 50%; animation: pulse 1s infinite ease-in-out; }

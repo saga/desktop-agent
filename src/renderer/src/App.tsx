@@ -27,6 +27,7 @@ import {
   ThunderboltOutlined,
 } from '@ant-design/icons';
 import { Bubble, Sender } from '@ant-design/x';
+import { XMarkdown } from '@ant-design/x-markdown';
 import type {
   AgentEvent,
   AgentProvider,
@@ -244,7 +245,11 @@ export default function App() {
     role: item.role,
     content: (
       <div className="bubble-message">
-        {item.content ? <div className="bubble-text">{item.content}</div> : item.status === 'streaming' ? (
+        {item.content ? (
+          item.role === 'assistant'
+            ? <div className="bubble-text"><XMarkdown content={item.content} /></div>
+            : <div className="bubble-text">{item.content}</div>
+        ) : item.status === 'streaming' ? (
           <span className="thinking-copy"><span className="thinking-dots" /> 正在思考…</span>
         ) : null}
         {item.role === 'assistant' && (item.provider || item.status) ? (
