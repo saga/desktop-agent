@@ -572,7 +572,7 @@ export default function App() {
           <label className="field-label">首选运行时</label>
           <Select
             size="large"
-            block
+            style={{ width: "100%" }}
             value={settingsDraft.preferredProvider}
             options={[
               { value: 'copilot', label: 'GitHub Copilot SDK' },
