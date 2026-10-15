@@ -18,7 +18,8 @@
       "@shared/*": [
         "src/shared/*"
       ]
-    }
+    },
+    "baseUrl": "."
   },
   "include": [
     "src/renderer/**/*.ts",
