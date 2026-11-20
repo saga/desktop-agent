@@ -1,45 +1,29 @@
-# ADR-0003: Introduce a Shared Policy Control Plane
+# ADR-0003: Keep Local Authorization Small and Host-Owned
 
 - Status: Accepted
 - Date: 2026-11-20
-- Owners: Desktop Agent maintainers
 
 ## Context
 
-The current `policy.ts` module handles provider selection, quota detection, and fallback safety. It is not an authorization policy engine. Authorization is expressed through provider-specific SDK callbacks, which makes controls difficult to apply consistently as the product adds execution channels.
-
-The product needs one host-owned enforcement contract, but the current application is a single-user local desktop tool. A remote policy administration service, elaborate PAP/PIP services, and a generic policy language would add complexity without a current use case.
+Provider adapters previously implemented different implicit-read allowlists. That made the meaning of "safe read" depend on SDK-specific tool names and input shapes. The application is currently a single-user local desktop tool; it does not yet need a remote policy service, generic policy language, role hierarchy, or administration UI.
 
 ## Decision
 
-Keep the first implementation deliberately small:
+Keep the first local policy deliberately small. Both adapters use the same host-owned rule: only an explicit single-file `Read` whose canonical target exists inside the selected workspace may proceed without approval. Directory listing, globbing, search, skills, task tools, shell, network, writes, and all unknown tools require the host approval callback. A failed or ambiguous check is never implicitly allowed.
 
-1. SDK adapters translate provider requests into host-owned authorization checks.
-2. Workspace read checks are shared and fail closed when paths or patterns cannot be validated.
-3. Every other tool operation requires explicit host-mediated user approval.
-4. Approval remains bound to the active run and expires; it is not a reusable capability.
-5. Provider adapters do not independently invent authorization rules beyond translating their SDK request shape.
-6. Do not introduce a remote PAP/PIP, policy DSL, role hierarchy, or policy administration UI until multi-user organizational policy is a real product requirement.
+The Renderer may present an approval request but cannot grant capabilities itself. Approval remains bound to the pending callback and active run. SDK adapters translate provider-specific requests; they do not define separate implicit-trust allowlists.
 
-The current local decision outcomes are intentionally limited to **Allow**, **Deny**, and **Require user approval**. More granular decisions such as Step-up Authentication and Allow with Constraints should be added only when an execution channel can enforce them.
-
-## Required execution boundary
-
-The shared host policy is an authorization gate, not a sandbox. Any process execution still runs with the operating-system identity and privileges available to the SDK runtime. Enterprise-grade enforcement requires OS-level process isolation and restricted filesystem/network access.
-
-Before adding new execution channels, each must use the same host authorization contract. Network, connector, MCP, browser, computer-use, and artifact-export support must not bypass it.
+Do not add PAP/PIP services, a remote policy server, a generic rule language, or an enterprise administration UI until the product has multiple policy sources and actual enterprise deployment requirements. OS sandboxing remains a separate enforcement requirement and cannot be simulated by prompts or approval dialogs.
 
 ## Rollout
 
-1. Share workspace read validation and keep all non-read tool actions behind host approval.
-2. Add OS-enforced process and filesystem isolation before claiming constrained execution.
-3. Add network egress restrictions and credential isolation if remote tools or enterprise data access are introduced.
-4. Add data classification, DLP, durable audit, revocation, and incident response when enterprise deployment is in scope.
+1. Share the narrow implicit-read rule across providers.
+2. Keep all other tool actions behind host-mediated approval.
+3. Add OS-enforced process isolation and race-resistant file access before treating execution approval as a security boundary.
+4. Add network, credential, data, and audit controls when those execution paths are introduced.
 
 ## Consequences
 
-- The design avoids building a policy platform ahead of product requirements.
-- The host remains the single place to evolve authorization behavior.
-- Existing SDK adapters and Electron architecture remain intact.
-- This ADR does not claim that OS sandboxing, network egress enforcement, credential brokering, DLP, or enterprise audit already exists.
-- Enterprise deployment remains blocked until the relevant enforcement points are implemented and tested.
+- More SDK tools may ask for approval than before. This is intentional: unknown and compound tools are not silently trusted.
+- The policy surface stays small and testable.
+- This local gate is not a substitute for an OS sandbox, network egress control, or enterprise authorization services.
