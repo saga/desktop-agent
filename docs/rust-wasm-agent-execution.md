@@ -10,7 +10,7 @@ Use a platform-native Rust toolchain (Rust 1.85 or later) with the WASI Preview 
 rustup target add wasm32-wasip2
 ```
 
-Use Wasmtime 50.0.0 or later. The packaged Wasmtime executable must match the host OS and CPU architecture.
+Use Wasmtime 50.0.1 or later. Wasmtime 50.0.0 is rejected because it is affected by CVE-2026-126407. The packaged Wasmtime executable must match the host OS and CPU architecture.
 
 Before packaging, set:
 
@@ -52,7 +52,7 @@ pub fn run(ctx: &AgentContext) -> Result<String, String> {
     let input = ctx.input_json()?;
     let files = ctx.list_files("")?;
     ctx.log(&format!("Found {} files", files.len()));
-    Ok(format!("{{\\"input\\":{}}}", input))
+    Ok(format!(r#"{{"input":{}}}"#, input))
 }
 ```
 

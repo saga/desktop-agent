@@ -124,7 +124,6 @@ function toolResult(value, isError = false) {
 export function createRustExecutionService(options) {
   const {
     workspace,
-    tempDirectory,
     platform,
     baseRequest,
     readonlyPaths,
@@ -143,14 +142,17 @@ export function createRustExecutionService(options) {
   let mutationInProgress = false;
   const rustcPath = path.join(rustToolchainDirectory, "bin", platform === "win32" ? "rustc.exe" : "rustc");
   const cargoPath = path.join(rustToolchainDirectory, "bin", platform === "win32" ? "cargo.exe" : "cargo");
-  const toolPath = [
+  const toolPathEntries = [
     path.join(rustToolchainDirectory, "bin"),
     path.dirname(wasmtimePath),
-    ...readonlyPaths.filter((entry) => entry !== rustSdkDirectory),
-  ].join(path.delimiter);
+    ...(platform === "win32" ? [
+      process.env.SystemRoot ? path.join(process.env.SystemRoot, "System32") : "",
+      process.env.SystemRoot ?? "",
+    ] : []),
+  ].filter(Boolean);
+  const toolPath = [...new Set(toolPathEntries)].join(path.delimiter);
   const isolatedReadonlyPaths = [...new Set([
     ...readonlyPaths,
-    tempDirectory,
     rustToolchainDirectory,
     rustSdkDirectory,
     path.dirname(wasmtimePath),

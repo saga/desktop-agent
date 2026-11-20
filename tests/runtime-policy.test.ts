@@ -43,7 +43,7 @@ test('only explicit Read actions inside the workspace are implicitly allowed', a
   }
 });
 
-import { isSupportedSandboxNodeVersion } from '../src/main/agent/sandbox.js';
+import { isSupportedSandboxNodeVersion, isSupportedWasmtimeVersion } from '../src/main/agent/sandbox.js';
 
 test('MXC Node runtime version requirements are platform-specific and fail closed', () => {
   assert.equal(isSupportedSandboxNodeVersion('v24.21.0', 'win32'), true);
@@ -51,4 +51,11 @@ test('MXC Node runtime version requirements are platform-specific and fail close
   assert.equal(isSupportedSandboxNodeVersion('v24.0.0', 'darwin'), true);
   assert.equal(isSupportedSandboxNodeVersion('v22.13.0', 'darwin'), false);
   assert.equal(isSupportedSandboxNodeVersion('v26.0.0', 'linux'), false);
+});
+
+test('bundled Wasmtime version includes the October 2026 security fixes', () => {
+  assert.equal(isSupportedWasmtimeVersion('50.0.0'), false);
+  assert.equal(isSupportedWasmtimeVersion('50.0.1'), true);
+  assert.equal(isSupportedWasmtimeVersion('49.0.5'), false);
+  assert.equal(isSupportedWasmtimeVersion('51.0.0'), true);
 });

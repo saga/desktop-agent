@@ -36,7 +36,7 @@ The WASI preopen is not the only boundary: the Wasmtime process itself runs in M
 
 The Rust host toolchain, `wasm32-wasip2` standard library, Wasmtime CLI, and SDK are placed under Electron `extraResources`, outside ASAR. The packaging script accepts platform-specific prebuilt toolchain/runtime paths. Release packaging must fail if these resources are missing; ordinary development builds may omit the optional feature.
 
-The packaged Wasmtime CLI must be at least 50.0.0. The Rust toolchain must support `wasm32-wasip2` (Rust 1.85 or later). Exact versions are recorded in the packaged manifest.
+The packaged Wasmtime CLI must be at least 50.0.1. Version 50.0.0 is rejected because it is affected by the October 2026 component-resource denial-of-service advisory (CVE-2026-126407). The Rust toolchain must support `wasm32-wasip2` (Rust 1.85 or later). Exact versions are recorded in the packaged manifest.
 
 ## Consequences and limitations
 

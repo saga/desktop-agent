@@ -43,16 +43,39 @@ const wasmtimeVersionMatch = /wasmtime\s+(\d+)\.(\d+)\.(\d+)/i.exec(wasmtimeVers
 if (!rustVersion || Number(rustVersion[1]) < 1 || (Number(rustVersion[1]) === 1 && Number(rustVersion[2]) < 85)) {
   throw new Error("Rust 1.85 or later is required for wasm32-wasip2.");
 }
-if (!wasmtimeVersionMatch || Number(wasmtimeVersionMatch[1]) < 50) {
-  throw new Error("Wasmtime 50.0.0 or later is required.");
+const wasmtimeVersionParts = wasmtimeVersionMatch?.slice(1).map(Number) ?? [];
+if (
+  wasmtimeVersionParts.length !== 3
+  || wasmtimeVersionParts[0] < 50
+  || (wasmtimeVersionParts[0] === 50 && wasmtimeVersionParts[1] === 0 && wasmtimeVersionParts[2] < 1)
+) {
+  throw new Error("Wasmtime 50.0.1 or later is required (50.0.0 is affected by CVE-2026-126407).");
 }
 const runHelp = execFileSync(wasmtime, ["run", "--help"], { encoding: "utf8" });
 const optimizeHelp = execFileSync(wasmtime, ["run", "-O", "help"], { encoding: "utf8" });
+const wasmHelp = execFileSync(wasmtime, ["run", "-W", "help"], { encoding: "utf8" });
+const wasiHelp = execFileSync(wasmtime, ["run", "-S", "help"], { encoding: "utf8" });
 for (const option of ["--dir", "--optimize", "--wasm", "--wasi"]) {
   if (!runHelp.includes(option)) throw new Error("Bundled Wasmtime does not support required option: " + option);
 }
-for (const option of ["pooling-allocator", "pooling-max-memory-size", "pooling-total-component-instances"]) {
+for (const option of [
+  "pooling-allocator", "pooling-max-memory-size", "pooling-total-component-instances",
+  "pooling-total-core-instances", "pooling-max-component-instance-size",
+]) {
   if (!optimizeHelp.includes(option)) throw new Error("Bundled Wasmtime lacks required pooling option: " + option);
+}
+for (const option of [
+  "fuel", "max-memory-size", "max-instances", "max-memories", "max-tables",
+  "max-table-elements", "max-wasm-stack", "timeout",
+]) {
+  if (!wasmHelp.includes(option)) throw new Error("Bundled Wasmtime lacks required WebAssembly limit: " + option);
+}
+for (const option of [
+  "inherit-env", "inherit-stdin", "inherit-network", "allow-ip-name-lookup",
+  "tcp", "udp", "http", "max-resources", "hostcall-fuel", "max-io-size",
+  "max-component-handles", "cwd",
+]) {
+  if (!wasiHelp.includes(option)) throw new Error("Bundled Wasmtime lacks required WASI policy option: " + option);
 }
 
 const rustTargetDirectory = execFileSync(rustc, ["--print", "target-libdir", "--target", "wasm32-wasip2"], {

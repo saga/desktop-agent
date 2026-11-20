@@ -28,6 +28,10 @@ export function isSupportedSandboxNodeVersion(version: string, platform: NodeJS.
   return false;
 }
 
+export function isSupportedWasmtimeVersion(version: string): boolean {
+  return versionAtLeast(version, [50, 0, 1]);
+}
+
 function nodeCandidates(): string[] {
   const executable = process.platform === 'win32' ? 'node.exe' : 'node';
   const home = os.homedir();
