@@ -1,7 +1,7 @@
 import { CopilotClient } from '@github/copilot-sdk';
 import type { PermissionRequestInfo } from '../../shared/contracts.js';
 import type { ProviderRunInput, ProviderRunResult } from './runtime.js';
-import { isInsideWorkspace } from './workspace.js';
+import { isImplicitWorkspaceRead } from './policy.js';
 
 let client: CopilotClient | null = null;
 let clientStart: Promise<CopilotClient> | null = null;
@@ -9,18 +9,12 @@ let clientStart: Promise<CopilotClient> | null = null;
 async function getClient(): Promise<CopilotClient> {
   if (client) return client;
   if (clientStart) return clientStart;
-
   clientStart = (async () => {
-    // Reuse the account already authenticated by the user's local Copilot CLI.
     const instance = new CopilotClient({ mode: 'copilot-cli', useLoggedInUser: true });
     await instance.start();
     client = instance;
     return instance;
-  })().catch((error) => {
-    clientStart = null;
-    throw error;
-  });
-
+  })().catch((error) => { clientStart = null; throw error; });
   return clientStart;
 }
 
@@ -28,22 +22,14 @@ function permissionDetails(request: unknown): PermissionRequestInfo {
   const value = (request && typeof request === 'object' ? request : {}) as Record<string, unknown>;
   const kind = typeof value.kind === 'string' ? value.kind : 'tool';
   let detail = '';
-
-  if (kind === 'shell') {
-    detail = String(value.fullCommandText ?? value.intention ?? '执行终端命令');
-  } else if (kind === 'write') {
+  if (kind === 'shell') detail = String(value.fullCommandText ?? value.intention ?? '执行终端命令');
+  else if (kind === 'write') {
     detail = String(value.fileName ?? value.intention ?? '写入或修改文件');
     if (typeof value.diff === 'string' && value.diff) detail += '\n\n' + value.diff;
-  } else if (kind === 'read') {
-    detail = String(value.path ?? value.intention ?? '读取文件');
-  } else if (kind === 'url') {
-    detail = String(value.url ?? value.intention ?? '访问网络资源');
-  } else if (kind === 'mcp') {
-    detail = String(value.serverName ?? 'MCP') + ' / ' + String(value.toolName ?? 'tool');
-  } else {
-    detail = String(value.intention ?? kind);
-  }
-
+  } else if (kind === 'read') detail = String(value.path ?? value.intention ?? '读取文件');
+  else if (kind === 'url') detail = String(value.url ?? value.intention ?? '访问网络资源');
+  else if (kind === 'mcp') detail = String(value.serverName ?? 'MCP') + ' / ' + String(value.toolName ?? 'tool');
+  else detail = String(value.intention ?? kind);
   return { provider: 'copilot', action: kind, description: detail };
 }
 
@@ -54,15 +40,10 @@ export async function runCopilot(input: ProviderRunInput): Promise<ProviderRunRe
     workingDirectory: input.workingDirectory,
     onPermissionRequest: async (request) => {
       if (input.isCancelled()) return { kind: 'reject' };
-      // Only canonicalized paths inside the workspace qualify for implicit read access.
       const requestRecord = request as unknown as Record<string, unknown>;
-      const requestedPath = typeof requestRecord.path === 'string' ? requestRecord.path : '';
-      const managedApprovalRequired = requestRecord.managedApprovalRequired === true;
       if (request.kind === 'read') {
-        if (!await isInsideWorkspace(input.workingDirectory, requestedPath)) {
-          return { kind: 'reject' };
-        }
-        if (!managedApprovalRequired) return { kind: 'approve-once' };
+        if (!await isImplicitWorkspaceRead('Read', { path: requestRecord.path }, input.workingDirectory)) return { kind: 'reject' };
+        if (requestRecord.managedApprovalRequired !== true) return { kind: 'approve-once' };
       }
       const allowed = await input.requestPermission(permissionDetails(request));
       if (allowed) input.onSideEffectApproved();
@@ -73,30 +54,16 @@ export async function runCopilot(input: ProviderRunInput): Promise<ProviderRunRe
   let streamedContent = '';
   const unsubscribeDelta = session.on('assistant.message_delta', (event) => {
     const delta = event.data.deltaContent;
-    if (typeof delta === 'string' && delta.length > 0) {
-      streamedContent += delta;
-      input.onDelta(delta);
-    }
+    if (typeof delta === 'string' && delta) { streamedContent += delta; input.onDelta(delta); }
   });
   const unsubscribeIntent = session.on('assistant.intent', (event) => {
     const intent = event.data.intent;
     if (typeof intent === 'string' && intent.trim()) input.onStatus(intent.trim());
   });
-
-  input.setAbort(async () => {
-    await session.abort();
-  });
-
+  input.setAbort(async () => { await session.abort(); });
   try {
-    const response = await session.sendAndWait(
-      { prompt: input.prompt },
-      24 * 60 * 60 * 1000,
-    );
-    return {
-      content: typeof response?.data?.content === 'string'
-        ? response.data.content
-        : streamedContent,
-    };
+    const response = await session.sendAndWait({ prompt: input.prompt }, 24 * 60 * 60 * 1000);
+    return { content: typeof response?.data?.content === 'string' ? response.data.content : streamedContent };
   } finally {
     unsubscribeDelta();
     unsubscribeIntent();
@@ -107,7 +74,5 @@ export async function stopCopilotClient(): Promise<void> {
   const instance = client;
   client = null;
   clientStart = null;
-  if (instance) {
-    await instance.stop();
-  }
+  if (instance) await instance.stop();
 }
