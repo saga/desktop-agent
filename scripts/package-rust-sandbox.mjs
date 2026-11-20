@@ -32,6 +32,10 @@ for (const candidate of [rustc, cargo, targetLibrary, wasmtime]) {
   await fs.access(candidate).catch(() => { throw new Error("Required Rust/WASM resource is missing: " + candidate); });
 }
 const rustcVersion = execFileSync(rustc, ["--version"], { encoding: "utf8" }).trim();
+const rustcVerbose = execFileSync(rustc, ["-vV"], { encoding: "utf8" });
+const hostTriple = rustcVerbose.split("\n").find((line) => line.startsWith("host:"))?.slice(5).trim();
+const expectedHost = { "darwin:arm64": "aarch64-apple-darwin", "darwin:x64": "x86_64-apple-darwin", "win32:x64": "x86_64-pc-windows-msvc" }[platformKey];
+if (hostTriple !== expectedHost) throw new Error("Rust toolchain host triple mismatch: expected " + expectedHost + ", got " + (hostTriple ?? "unknown"));
 const cargoVersion = execFileSync(cargo, ["--version"], { encoding: "utf8" }).trim();
 const wasmtimeVersion = execFileSync(wasmtime, ["--version"], { encoding: "utf8" }).trim();
 const rustMatch = /rustc\s+(\d+)\.(\d+)\.(\d+)/.exec(rustcVersion);
