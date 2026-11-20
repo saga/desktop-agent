@@ -100,12 +100,34 @@ const templateSource = path.join(root, "src", "main", "sandbox", "rust-template"
 const templateDestination = path.join(destination, "template");
 await fs.cp(templateSource, templateDestination, { recursive: true });
 
+const licenseDestination = path.join(destination, "licenses");
+await fs.mkdir(licenseDestination, { recursive: true });
+const rustLicenseSource = path.join(toolchain, "share", "doc", "rust", "licenses");
+await fs.access(rustLicenseSource).catch(() => {
+  throw new Error("Rust toolchain license notices are missing: " + rustLicenseSource);
+});
+await fs.cp(rustLicenseSource, path.join(licenseDestination, "rust"), { recursive: true });
+const wasmtimeLicenseFiles = [];
+for (const name of ["LICENSE", "LICENSE-APACHE", "LICENSE-MIT"]) {
+  const source = path.join(path.dirname(wasmtime), name);
+  try {
+    await fs.copyFile(source, path.join(licenseDestination, "wasmtime-" + name));
+    wasmtimeLicenseFiles.push("licenses/wasmtime-" + name);
+  } catch (error) {
+    if (error?.code !== "ENOENT") throw error;
+  }
+}
+if (wasmtimeLicenseFiles.length === 0) {
+  throw new Error("Wasmtime license notices were not found next to the bundled CLI.");
+}
+
 await fs.writeFile(path.join(destination, "manifest.json"), JSON.stringify({
   enabled: true,
   rustcVersion,
   wasmtimeVersion,
   target: "wasm32-wasip2",
   sdkVersion: "0.1.0",
+  licenseFiles: ["licenses/rust", ...wasmtimeLicenseFiles],
 }, null, 2) + "\n");
 
 console.log("[rust-sandbox] Packaged " + rustcVersion + " and " + wasmtimeVersion + ".");

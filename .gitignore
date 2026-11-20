@@ -21,3 +21,6 @@
 .DS_Store
 .idea/
 .vscode/
+
+# Locally prepared Rust/WASM toolchain binaries
+/resources/rust-sandbox/
