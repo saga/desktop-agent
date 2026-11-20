@@ -178,7 +178,7 @@ export function createRustExecutionService(options) {
       workingDirectory: runDirectory,
       timeoutMs,
       filesystem: {
-        readwritePaths: [runDirectory],
+        readwritePaths: [tempDirectory],
         readonlyPaths: isolatedReadonlyPaths,
       },
       network: {
