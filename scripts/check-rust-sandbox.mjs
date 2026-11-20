@@ -42,7 +42,7 @@ const agentSource = [
 function spawnForTest(request) {
   const windows = process.platform === "win32";
   const command = windows ? (request.environment.ComSpec || "cmd.exe") : "/bin/sh";
-  const args = windows ? ["/d", "/s", "/c", request.command] : ["-c", request.command];
+  const args = windows ? ["/d", "/s", "/c", '"' + request.command + '"' ] : ["-c", request.command];
   const child = spawnProcess(command, args, {
     cwd: request.workingDirectory,
     env: request.environment,
