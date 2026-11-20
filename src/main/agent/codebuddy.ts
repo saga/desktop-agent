@@ -18,6 +18,10 @@ async function readToolPathAllowed(root: string, toolName: string, toolInput: un
   if (!SAFE_READ_TOOLS.has(toolName)) return true;
   if (!toolInput || typeof toolInput !== 'object' || Array.isArray(toolInput)) return false;
   const input = toolInput as Record<string, unknown>;
+  if (toolName === 'Glob') {
+    const pattern = typeof input.pattern === 'string' ? input.pattern.replace(/\\\\/g, '/') : '';
+    if (!pattern || pattern.startsWith('/') || /^[A-Za-z]:/.test(pattern) || pattern.split('/').includes('..')) return false;
+  }
   if (toolName === 'Read') {
     const candidate = typeof input.file_path === 'string' ? input.file_path : input.path;
     return typeof candidate === 'string' && await isInsideWorkspace(root, candidate);
