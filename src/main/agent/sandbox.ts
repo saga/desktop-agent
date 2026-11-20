@@ -171,8 +171,8 @@ function resolveRustSandboxResources(): RustSandboxResources | null {
         windowsHide: true,
       }).trim();
       const match = /wasmtime\s+(\d+)\.(\d+)\.(\d+)/i.exec(version);
-      if (!match || Number(match[1]) < 50) {
-        console.warn("[sandbox] Rust execution disabled: Wasmtime 50.0.0 or later is required.");
+      if (!match || !isSupportedWasmtimeVersion(version)) {
+        console.warn("[sandbox] Rust execution disabled: Wasmtime 50.0.1 or later is required.");
         return null;
       }
       return { toolchainDirectory, sdkDirectory, templateDirectory, wasmtimePath };
