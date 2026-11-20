@@ -10,6 +10,7 @@ export interface ProviderRunInput {
   onDelta: (delta: string) => void;
   onStatus: (status: string) => void;
   requestPermission: (request: PermissionRequestInfo) => Promise<boolean>;
+  onSideEffectApproved: () => void;
   setAbort: (abort: () => Promise<void>) => void;
 }
 
@@ -38,6 +39,7 @@ export interface RuntimeExecutionResult extends ProviderRunResult {
 
 export async function executeWithFallback(input: RuntimeExecutionInput): Promise<RuntimeExecutionResult> {
   const candidates = providerCandidates(input.preferredProvider, input.fallbackOnQuota);
+  let sideEffectApproved = false;
 
   for (let index = 0; index < candidates.length; index += 1) {
     const provider = candidates[index];
@@ -56,6 +58,9 @@ export async function executeWithFallback(input: RuntimeExecutionInput): Promise
       onDelta: input.onDelta,
       onStatus: input.onStatus,
       requestPermission: input.requestPermission,
+      onSideEffectApproved: () => {
+        sideEffectApproved = true;
+      },
       setAbort: input.setAbort,
     };
 
@@ -67,6 +72,12 @@ export async function executeWithFallback(input: RuntimeExecutionInput): Promise
     } catch (error) {
       const nextProvider = candidates[index + 1];
       if (!nextProvider || !isQuotaError(error)) throw error;
+      if (sideEffectApproved) {
+        throw new Error(
+          '当前 Provider 在执行过程中已获准执行可能产生副作用的操作，额度错误后已停止自动切换，避免重复执行。请检查任务的部分执行结果，再决定是否继续。',
+          { cause: error },
+        );
+      }
       await input.onFallback(provider, nextProvider, error);
     }
   }
