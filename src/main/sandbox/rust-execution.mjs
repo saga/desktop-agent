@@ -248,7 +248,7 @@ export function createRustExecutionService(options) {
       if (!args || typeof args !== "object") throw new Error("Invalid execute_rust arguments.");
       const source = validateRustSource(args.source);
       const inputJson = validateRustInput(args.input);
-      await fs.mkdir(snapshotRoot, { recursive: true });
+      await fs.mkdir(snapshotRoot, { recursive: true, mode: 0o700 });
       runDirectory = path.join(tempDirectory, "rust-" + randomUUID());
       const projectDirectory = path.join(runDirectory, "project");
       const stagedWorkspace = path.join(runDirectory, "workspace");
