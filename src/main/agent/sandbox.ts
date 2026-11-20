@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -155,6 +156,39 @@ function resolveRustSandboxResources(): RustSandboxResources | null {
       .every((candidate) => fs.existsSync(candidate))) continue;
 
     try {
+      const manifestPath = path.join(root, "manifest.json");
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as {
+        enabled?: boolean;
+        platform?: string;
+        arch?: string;
+        files?: Record<string, string>;
+      };
+      if (manifest.enabled !== true || manifest.platform !== process.platform || manifest.arch !== process.arch) {
+        console.warn("[sandbox] Rust execution disabled: packaged resource manifest does not match this OS/architecture.");
+        return null;
+      }
+      const packagedFiles = [
+        "rust-toolchain/bin/rustc" + executable,
+        "rust-toolchain/bin/cargo" + executable,
+        "wasmtime/wasmtime" + executable,
+        "sdk/Cargo.toml",
+        "template/Cargo.toml",
+        "template/Cargo.lock",
+        "template/src/main.rs",
+      ];
+      for (const relative of packagedFiles) {
+        const expectedHash = manifest.files?.[relative];
+        const absolute = path.join(root, ...relative.split("/"));
+        if (!expectedHash || !fs.existsSync(absolute)) {
+          console.warn("[sandbox] Rust execution disabled: packaged resource is missing from manifest: " + relative);
+          return null;
+        }
+        const actualHash = createHash("sha256").update(fs.readFileSync(absolute)).digest("hex");
+        if (actualHash !== expectedHash) {
+          console.warn("[sandbox] Rust execution disabled: packaged resource hash mismatch: " + relative);
+          return null;
+        }
+      }
       const rustVersion = execFileSync(rustcPath, ["--version"], {
         encoding: "utf8",
         timeout: 3000,

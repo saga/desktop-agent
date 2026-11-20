@@ -18,8 +18,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-          cache: npm
-          cache-dependency-path: package-lock.json
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-wasip2
@@ -80,6 +78,8 @@ jobs:
           echo "DESKTOP_AGENT_RUST_TOOLCHAIN_DIR=$(rustc --print sysroot)" >> "$GITHUB_ENV"
       - name: Build real platform installer and verify bundled WASI runtime
         run: npm run package
+      - name: Run installed-resource WASI integration test
+        run: node scripts/check-rust-sandbox.mjs
       - name: Report installer size and signing state
         shell: bash
         run: |
