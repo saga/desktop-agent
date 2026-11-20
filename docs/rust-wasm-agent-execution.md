@@ -71,7 +71,7 @@ SDK operations include `input_json`, `read_text`, `write_text`, `delete_file`, `
 ## Security boundary and current limits
 
 - The generated crate root uses `#![forbid(unsafe_code)]`. Model-supplied Cargo manifests, lockfiles, dependencies, build scripts, and procedural macros are not accepted.
-- The Rust compiler and Wasmtime are both launched through MXC. Their writable filesystem scope is the per-run directory, not the real workspace.
+- The Rust compiler and Wasmtime are both launched through MXC. Their writable filesystem scope is the per-run directory, not the real workspace. The native Rust compiler is constrained by source-size and wall-clock limits, but MXC does not impose a hard per-process memory quota. Wasmtime caps guest linear memory at 256 MiB; runtime/host overhead is not a separate OS-enforced memory quota.
 - WASI receives one read/write preopen pointing at the snapshot. The Wasmtime process itself is also restricted by MXC, so a WASI preopen escape is still confined to the run directory and read-only toolchain/system paths.
 - WASI environment variables are not inherited. WASI network access is not enabled; the outer MXC network policy is default-deny.
 - Snapshot size is checked before and after execution, but this first version does not impose a hard filesystem quota while Guest code is running. The 100 MiB limit is a validation/cleanup boundary, not an OS-enforced disk quota.

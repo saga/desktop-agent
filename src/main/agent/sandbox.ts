@@ -205,6 +205,12 @@ export function createSandboxMcpServer(workspaceDirectory: string): SandboxMcpSe
       WORKSPACE_DIR: path.resolve(workspaceDirectory),
       HOST_PLATFORM: process.platform,
       NODE_NO_WARNINGS: '1',
+      ...(process.platform === 'win32' ? {
+        SystemRoot: process.env.SystemRoot ?? '',
+        ComSpec: process.env.ComSpec ?? 'cmd.exe',
+        ProgramFiles: process.env.ProgramFiles ?? '',
+        'ProgramFiles(x86)': process.env['ProgramFiles(x86)'] ?? '',
+      } : {}),
     },
   };
 }
