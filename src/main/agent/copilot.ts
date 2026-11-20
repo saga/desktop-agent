@@ -1,7 +1,7 @@
 import { CopilotClient } from '@github/copilot-sdk';
-import path from 'node:path';
 import type { PermissionRequestInfo } from '../../shared/contracts.js';
 import type { ProviderRunInput, ProviderRunResult } from './runtime.js';
+import { isInsideWorkspace } from './workspace.js';
 
 let client: CopilotClient | null = null;
 let clientStart: Promise<CopilotClient> | null = null;
@@ -22,13 +22,6 @@ async function getClient(): Promise<CopilotClient> {
   });
 
   return clientStart;
-}
-
-function isWorkspacePath(workingDirectory: string, candidate: string): boolean {
-  if (!candidate || candidate.startsWith('~')) return false;
-  const root = path.resolve(workingDirectory);
-  const target = path.resolve(root, candidate);
-  return target === root || target.startsWith(root + path.sep);
 }
 
 function permissionDetails(request: unknown): PermissionRequestInfo {
@@ -60,19 +53,19 @@ export async function runCopilot(input: ProviderRunInput): Promise<ProviderRunRe
     model: input.model,
     workingDirectory: input.workingDirectory,
     onPermissionRequest: async (request) => {
-      // Read-only file access does not modify the workspace; changes and network
-      // actions remain behind an explicit host confirmation.
+      // Only canonicalized paths inside the workspace qualify for implicit read access.
       const requestRecord = request as unknown as Record<string, unknown>;
       const requestedPath = typeof requestRecord.path === 'string' ? requestRecord.path : '';
       const managedApprovalRequired = requestRecord.managedApprovalRequired === true;
       if (
         request.kind === 'read'
         && !managedApprovalRequired
-        && isWorkspacePath(input.workingDirectory, requestedPath)
+        && await isInsideWorkspace(input.workingDirectory, requestedPath)
       ) {
         return { kind: 'approve-once' };
       }
       const allowed = await input.requestPermission(permissionDetails(request));
+      if (allowed) input.onSideEffectApproved();
       return { kind: allowed ? 'approve-once' : 'reject' };
     },
   });
