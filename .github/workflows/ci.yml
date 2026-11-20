@@ -37,7 +37,7 @@ jobs:
       matrix:
         include:
           - label: macOS ARM64
-            runner: macos-14
+            runner: macos-15
             wasmtime_asset: wasmtime-v50.0.1-aarch64-macos.tar.xz
             archive: tar.xz
           - label: macOS x64
@@ -55,8 +55,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-          cache: npm
-          cache-dependency-path: package-lock.json
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-wasip2
