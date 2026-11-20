@@ -124,6 +124,7 @@ function toolResult(value, isError = false) {
 export function createRustExecutionService(options) {
   const {
     workspace,
+    tempDirectory,
     platform,
     baseRequest,
     rustToolchainDirectory,
