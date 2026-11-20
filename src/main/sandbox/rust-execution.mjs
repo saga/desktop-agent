@@ -392,7 +392,7 @@ export function createRustExecutionService(options) {
             throw new Error("Staged file is not a regular file: " + change.path);
           }
           const stagedHash = hash(await fs.readFile(staged));
-          if (stagedHash !== snapshot.after.get(change.path)?.hash) {
+          if (stagedHash !== snapshot.after.get(change.path)) {
             throw new Error("Staged file changed after execution: " + change.path);
           }
         }
