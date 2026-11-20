@@ -40,14 +40,17 @@ jobs:
             runner: macos-15
             wasmtime_asset: wasmtime-v50.0.1-aarch64-macos.tar.xz
             archive: tar.xz
+            sha256: 960e5216c7ebd7e9b45e6561d15821b8b801b7d54aee28c7b91921aeb30c65c8
           - label: macOS x64
             runner: macos-15-intel
             wasmtime_asset: wasmtime-v50.0.1-x86_64-macos.tar.xz
             archive: tar.xz
+            sha256: ea1818fa8cbb51524847ab2ad22197e0051594fdc96cbd0cc2afb65832e11925
           - label: Windows x64
             runner: windows-latest
             wasmtime_asset: wasmtime-v50.0.1-x86_64-windows.zip
             archive: zip
+            sha256: c3646ee2de8cfcefe532e75852e1fd2728d78c3fcc43251794803a698d1c30ca
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     steps:
@@ -64,6 +67,7 @@ jobs:
         shell: bash
         run: |
           curl -fL "https://github.com/bytecodealliance/wasmtime/releases/download/v50.0.1/${{ matrix.wasmtime_asset }}" -o "$RUNNER_TEMP/wasmtime-archive"
+          echo "${{ matrix.sha256 }}  $RUNNER_TEMP/wasmtime-archive" | sha256sum --check
           mkdir -p "$RUNNER_TEMP/wasmtime"
           if [ "${{ matrix.archive }}" = "zip" ]; then
             python -c "import zipfile; zipfile.ZipFile(r'$RUNNER_TEMP/wasmtime-archive').extractall(r'$RUNNER_TEMP/wasmtime')"
