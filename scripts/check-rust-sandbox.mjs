@@ -6,9 +6,11 @@ import { fileURLToPath } from "node:url";
 import { createRustExecutionService } from "../src/main/sandbox/rust-execution.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const sdk = path.join(root, "src", "main", "sandbox", "rust-sdk");
+const sdk = path.join(packagedRoot, "sdk");
 const packagedRoot = path.join(root, "resources", "rust-sandbox");
 const executable = process.platform === "win32" ? ".exe" : "";
+const manifest = JSON.parse(await fs.readFile(path.join(packagedRoot, "manifest.json"), "utf8"));
+if (manifest.enabled !== true || manifest.platform !== process.platform || manifest.arch !== process.arch) throw new Error("Packaged Rust sandbox manifest does not match the current platform/architecture.");
 const packagedToolchain = path.join(packagedRoot, "rust-toolchain");
 const cargo = path.join(packagedToolchain, "bin", "cargo" + executable);
 const rustc = path.join(packagedToolchain, "bin", "rustc" + executable);

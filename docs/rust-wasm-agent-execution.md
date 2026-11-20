@@ -33,7 +33,7 @@ $env:DESKTOP_AGENT_WASMTIME_BIN = (Get-Command wasmtime).Source
 npm run package
 ```
 
-The packaging script copies the Rust toolchain, Wasmtime, SDK, and fixed project template into Electron `extraResources/rust-sandbox`. Release packaging fails if either executable or the WASM target is missing.
+The packaging script accepts only native `darwin-arm64`, `darwin-x64`, and `win32-x64` toolchains, stages resources before replacing the destination, records OS/architecture and SHA-256 hashes in `manifest.json`, and copies the Rust toolchain, Wasmtime, SDK, and fixed project template into Electron `extraResources/rust-sandbox`. Release packaging fails if a required executable, license, target library, or compatible Wasmtime option is missing. The runtime checks the manifest platform and architecture before enabling the Rust tools.
 
 For development, `npm run build` does not copy the large Rust toolchain. To enable the Rust MCP tools locally, set the same environment variables and run `npm run package:rust-sandbox` before starting the app. Without prepared resources, the Rust MCP tools are not registered and the existing MXC command tool continues to work.
 
@@ -79,3 +79,10 @@ SDK operations include `input_json`, `read_text`, `write_text`, `delete_file`, `
 - Windows MXC `base-container` is not an AppContainer or VM. macOS uses Seatbelt. Integration tests on both platforms are required before treating the feature as production-ready.
 
 The Rust backend is opt-in at packaging time and is not advertised when its compiler/runtime resources are absent.
+
+
+## Build and release verification
+
+CI separates portable source verification from native packaging. Linux runs type-checks, unit tests, and the application build only. Native package jobs build actual Electron artifacts on macOS ARM64, macOS x64, and Windows x64 runners, then upload the DMG/ZIP or NSIS output and report its size. Each package job uses the runner-native Rust toolchain and matching Wasmtime binary; Linux artifacts are not reused for desktop releases.
+
+The CI installers are unsigned test artifacts. A production release still requires organization-owned signing credentials and a release workflow that signs every embedded executable, signs the macOS app, submits it for notarization, staples the ticket, and verifies Gatekeeper/Authenticode status on clean machines. This repository does not claim signing or notarization has occurred merely because an unsigned installer was built. Runtime isolation also needs hands-on testing on supported macOS and Windows versions; CI package success is not a substitute for validating Seatbelt and Windows ProcessContainer behavior on user hardware.

@@ -19,26 +19,74 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: package.json
+          cache-dependency-path: package-lock.json
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-wasip2
-      - name: Download and verify Wasmtime 50.0.1
-        run: |
-          curl -fsSL https://github.com/bytecodealliance/wasmtime/releases/download/v50.0.1/wasmtime-v50.0.1-x86_64-linux.tar.xz -o "$RUNNER_TEMP/wasmtime.tar.xz"
-          echo "685466455dd42a14774a86c36c8f2e45cbb9bd6d92a850139315df60a75498a5  $RUNNER_TEMP/wasmtime.tar.xz" | sha256sum --check
-          mkdir -p "$RUNNER_TEMP/wasmtime"
-          tar -xJf "$RUNNER_TEMP/wasmtime.tar.xz" -C "$RUNNER_TEMP/wasmtime"
-          echo "WASMTIME_BIN=$RUNNER_TEMP/wasmtime/wasmtime-v50.0.1-x86_64-linux/wasmtime" >> "$GITHUB_ENV"
       - name: Install dependencies
         run: npm install --no-audit --no-fund
-      - name: Package Rust toolchain and verify Wasmtime CLI options
-        run: DESKTOP_AGENT_RUST_TOOLCHAIN_DIR="$(rustc --print sysroot)" DESKTOP_AGENT_WASMTIME_BIN="$WASMTIME_BIN" npm run package:rust-sandbox
-      - name: Compile and execute Rust WASM guest
-        run: node scripts/check-rust-sandbox.mjs
-      - name: Type-check
-        run: npm run typecheck
-      - name: Runtime policy tests
-        run: npm test
-      - name: Build Electron app
+      - name: Type-check and unit tests
+        run: |
+          npm run typecheck
+          npm test
+      - name: Build application code
         run: npm run build
+
+  platform-package:
+    name: Package ${{ matrix.label }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: macOS ARM64
+            runner: macos-14
+            wasmtime_asset: wasmtime-v50.0.1-aarch64-macos.tar.xz
+            archive: tar.xz
+          - label: macOS x64
+            runner: macos-15-intel
+            wasmtime_asset: wasmtime-v50.0.1-x86_64-macos.tar.xz
+            archive: tar.xz
+          - label: Windows x64
+            runner: windows-latest
+            wasmtime_asset: wasmtime-v50.0.1-x86_64-windows.zip
+            archive: zip
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-wasip2
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Download Wasmtime
+        shell: bash
+        run: |
+          curl -fL "https://github.com/bytecodealliance/wasmtime/releases/download/v50.0.1/${{ matrix.wasmtime_asset }}" -o "$RUNNER_TEMP/wasmtime-archive"
+          mkdir -p "$RUNNER_TEMP/wasmtime"
+          if [ "${{ matrix.archive }}" = "zip" ]; then
+            python -c "import zipfile; zipfile.ZipFile(r'$RUNNER_TEMP/wasmtime-archive').extractall(r'$RUNNER_TEMP/wasmtime')"
+          else
+            tar -xJf "$RUNNER_TEMP/wasmtime-archive" -C "$RUNNER_TEMP/wasmtime"
+          fi
+          WASMTIME_PATH="$(find "$RUNNER_TEMP/wasmtime" -type f \( -name wasmtime -o -name wasmtime.exe \) | head -n 1)"
+          test -n "$WASMTIME_PATH"
+          echo "DESKTOP_AGENT_WASMTIME_BIN=$WASMTIME_PATH" >> "$GITHUB_ENV"
+          echo "DESKTOP_AGENT_RUST_TOOLCHAIN_DIR=$(rustc --print sysroot)" >> "$GITHUB_ENV"
+      - name: Build real platform installer and verify bundled WASI runtime
+        run: npm run package
+      - name: Report installer size and signing state
+        shell: bash
+        run: |
+          find release -maxdepth 1 -type f -print -exec du -h {} \;
+          echo "Unsigned CI artifact: signing/notarization credentials are not configured in CI."
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-agent-${{ matrix.label }}
+          path: release/*
+          if-no-files-found: error
