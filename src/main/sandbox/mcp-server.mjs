@@ -16,7 +16,8 @@ const secretDirectories = new Set(['.ssh', '.aws', '.azure', '.kube', '.docker',
 const pathEntries = (process.env.PATH ?? '').split(path.delimiter).filter((entry) => {
   if (!entry) return false;
   const relative = path.relative(home, path.resolve(entry));
-  if (relative === '' || relative.startsWith('..' + path.sep) || path.isAbsolute(relative)) return true;
+  if (relative === '') return false;
+  if (relative === '..' || relative.startsWith('..' + path.sep) || path.isAbsolute(relative)) return true;
   return !relative.split(path.sep).some((part) => secretDirectories.has(part.toLowerCase()));
 });
 
