@@ -2,11 +2,13 @@ import type { AgentProvider, PermissionRequestInfo } from '../../shared/contract
 import { runCodeBuddy } from './codebuddy.js';
 import { runCopilot } from './copilot.js';
 import { canFallbackAfterSideEffect, isQuotaError, providerCandidates } from './policy.js';
+import type { SandboxMcpServer } from './sandbox.js';
 
 export interface ProviderRunInput {
   prompt: string;
   model: string;
   workingDirectory: string;
+  sandboxMcpServer: SandboxMcpServer;
   onDelta: (delta: string) => void;
   onStatus: (status: string) => void;
   requestPermission: (request: PermissionRequestInfo) => Promise<boolean>;
@@ -25,6 +27,7 @@ export interface RuntimeExecutionInput {
   models: Record<AgentProvider, string>;
   prompt: string;
   workingDirectory: string;
+  sandboxMcpServer: SandboxMcpServer;
   onProvider: (provider: AgentProvider, model: string) => void;
   onStatus: (status: string) => void;
   onDelta: (delta: string) => void;
@@ -57,6 +60,7 @@ export async function executeWithFallback(input: RuntimeExecutionInput): Promise
       prompt: input.prompt,
       model,
       workingDirectory: input.workingDirectory,
+      sandboxMcpServer: input.sandboxMcpServer,
       onDelta: input.onDelta,
       onStatus: input.onStatus,
       requestPermission: input.requestPermission,

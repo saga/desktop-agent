@@ -17,9 +17,21 @@ export async function runCodeBuddy(input: ProviderRunInput): Promise<ProviderRun
     // All SDK tools pass through the host callback; unknown tools require approval.
     permissionMode: 'bypassPermissions' as const,
     settingSources: [],
+    mcpServers: {
+      'desktop-agent-sandbox': {
+        type: 'stdio',
+        command: input.sandboxMcpServer.command,
+        args: input.sandboxMcpServer.args,
+        env: input.sandboxMcpServer.env,
+        timeout: 30000,
+      },
+    },
     maxTurns: 20,
     canUseTool: async (toolName: string, toolInput: unknown) => {
       if (input.isCancelled()) return { behavior: 'deny' as const, message: '任务已停止。', interrupt: true };
+      if (/^(bash|shell|terminal|powershell|commandprompt|cmd)$/i.test(toolName)) {
+        return { behavior: 'deny' as const, message: '宿主机 Shell 已禁用。请使用 desktop-agent-sandbox 的 run_command 工具。', interrupt: false };
+      }
       if (await isImplicitWorkspaceRead(toolName, toolInput, input.workingDirectory)) {
         return { behavior: 'allow' as const, updatedInput: toolInput };
       }

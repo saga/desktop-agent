@@ -15,6 +15,7 @@ import { IPC, providerLabel } from '../shared/contracts.js';
 import { executeWithFallback } from './agent/runtime.js';
 import { friendlyError, isAbortError } from './agent/policy.js';
 import { stopCopilotClient } from './agent/copilot.js';
+import { createSandboxMcpServer } from './agent/sandbox.js';
 import { createMessage, SessionStore, SettingsStore } from './store.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -151,7 +152,7 @@ function buildPrompt(session: ChatSession, workingDirectory: string): string {
     '你是 Desktop Agent，一个面向本地工作区的通用 Agent。请用用户当前使用的语言回答。',
     '当前工作目录：' + workingDirectory,
     '执行原则：先检查实际上下文，再执行任务；涉及代码修改时，直接完成必要修改并尽可能验证；不要虚构已经执行过的操作或测试结果。',
-    '权限边界：宿主会在文件修改、终端命令、网络访问等操作执行前请求用户确认。若用户拒绝，请尊重决定，不要以另一种工具重复同一操作。',
+    '权限边界：文件修改和宿主机操作需要用户确认。Shell 命令只能通过 desktop-agent-sandbox 的 run_command 工具执行；不要尝试调用 Provider 原生 Shell。命令运行在 OS Sandbox 中，工作区可写、系统工具链只读、网络默认关闭。',
     '下面是最近对话历史，按顺序用于理解上下文。最末一条用户消息是当前需要处理的请求。',
     history,
   ].join('\n\n');
@@ -167,6 +168,7 @@ async function runTurn(
     const workingDirectory = runSettings.workspaceDirectory;
     await fs.mkdir(workingDirectory, { recursive: true });
     const prompt = buildPrompt(session, workingDirectory);
+    const sandboxMcpServer = createSandboxMcpServer(workingDirectory);
 
     const result = await executeWithFallback({
       preferredProvider: runSettings.preferredProvider,
@@ -177,6 +179,7 @@ async function runTurn(
       },
       prompt,
       workingDirectory,
+      sandboxMcpServer,
       onProvider: (provider: AgentProvider, model: string) => {
         assistantMessage.provider = provider;
         assistantMessage.model = model;

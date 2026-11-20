@@ -42,3 +42,13 @@ test('only explicit Read actions inside the workspace are implicitly allowed', a
     await fs.rm(outside, { recursive: true, force: true });
   }
 });
+
+import { isSupportedSandboxNodeVersion } from '../src/main/agent/sandbox.js';
+
+test('MXC Node runtime version requirements are platform-specific and fail closed', () => {
+  assert.equal(isSupportedSandboxNodeVersion('v24.21.0', 'win32'), true);
+  assert.equal(isSupportedSandboxNodeVersion('v24.20.0', 'win32'), false);
+  assert.equal(isSupportedSandboxNodeVersion('v24.0.0', 'darwin'), true);
+  assert.equal(isSupportedSandboxNodeVersion('v22.13.0', 'darwin'), false);
+  assert.equal(isSupportedSandboxNodeVersion('v26.0.0', 'linux'), false);
+});

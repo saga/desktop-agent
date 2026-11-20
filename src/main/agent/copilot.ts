@@ -38,8 +38,19 @@ export async function runCopilot(input: ProviderRunInput): Promise<ProviderRunRe
   const session = await instance.createSession({
     model: input.model,
     workingDirectory: input.workingDirectory,
+    mcpServers: {
+      'desktop-agent-sandbox': {
+        type: 'local',
+        command: input.sandboxMcpServer.command,
+        args: input.sandboxMcpServer.args,
+        env: input.sandboxMcpServer.env,
+        tools: ['run_command'],
+        timeout: 30000,
+      },
+    },
     onPermissionRequest: async (request) => {
       if (input.isCancelled()) return { kind: 'reject' };
+      if (request.kind === 'shell') return { kind: 'reject' };
       const requestRecord = request as unknown as Record<string, unknown>;
       if (request.kind === 'read') {
         if (!await isImplicitWorkspaceRead('Read', { path: requestRecord.path }, input.workingDirectory)) return { kind: 'reject' };
