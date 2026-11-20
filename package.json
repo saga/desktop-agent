@@ -91,5 +91,12 @@
         ]
       }
     ]
+  },
+  "allowScripts": {
+    "electron": true,
+    "koffi": true,
+    "node-pty": true,
+    "electron-winstaller": true,
+    "esbuild": true
   }
 }
