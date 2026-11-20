@@ -53,8 +53,12 @@ function defaultSettings(): AgentSettings {
 }
 
 function trusted(event: IpcMainEvent | Electron.IpcMainInvokeEvent): void {
-  if (!mainWindow || event.sender !== mainWindow.webContents) {
-    throw new Error('拒绝来自非应用窗口的请求。');
+  if (
+    !mainWindow
+    || event.sender !== mainWindow.webContents
+    || event.senderFrame !== event.sender.mainFrame
+  ) {
+    throw new Error('拒绝来自非应用主框架的请求。');
   }
 }
 
@@ -468,11 +472,12 @@ function registerIpc(): void {
 
   ipcMain.handle(IPC.permissionResponse, (event, approvalId: string, allowed: boolean) => {
     trusted(event);
+    if (typeof approvalId !== 'string' || typeof allowed !== 'boolean') return false;
     const pending = pendingApprovals.get(approvalId);
-    if (!pending) return false;
+    if (!pending || !activeRun || pending.runId !== activeRun.runId) return false;
     clearTimeout(pending.timeout);
     pendingApprovals.delete(approvalId);
-    pending.resolve(Boolean(allowed));
+    pending.resolve(allowed);
     return true;
   });
 }
