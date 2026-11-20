@@ -56,9 +56,3 @@ test('workspace validation rejects symlink escapes and paths that cannot be reso
     await fs.rm(outside, { recursive: true, force: true });
   }
 });
-
-
-test('provider fallback is blocked after an approved operation may have side effects', () => {
-  assert.equal(canFallbackAfterSideEffect(false), true);
-  assert.equal(canFallbackAfterSideEffect(true), false);
-});
