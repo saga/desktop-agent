@@ -84,8 +84,11 @@ const rustTargetDirectory = execFileSync(rustc, ["--print", "target-libdir", "--
 await fs.access(rustTargetDirectory);
 
 const toolchainDestination = path.join(destination, "rust-toolchain");
-await fs.mkdir(toolchainDestination, { recursive: true });
-await fs.cp(path.join(toolchain, "bin"), path.join(toolchainDestination, "bin"), { recursive: true, dereference: true });
+const toolchainBinDestination = path.join(toolchainDestination, "bin");
+await fs.mkdir(toolchainBinDestination, { recursive: true });
+for (const name of ["rustc" + executable, "cargo" + executable]) {
+  await fs.copyFile(path.join(toolchain, "bin", name), path.join(toolchainBinDestination, name));
+}
 await fs.cp(path.join(toolchain, "lib"), path.join(toolchainDestination, "lib"), { recursive: true, dereference: true });
 const wasmtimeDirectory = path.join(destination, "wasmtime");
 await fs.mkdir(wasmtimeDirectory, { recursive: true });
