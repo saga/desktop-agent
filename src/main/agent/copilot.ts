@@ -33,7 +33,7 @@ function permissionDetails(request: unknown): PermissionRequestInfo {
     detail = String(value.fullCommandText ?? value.intention ?? '执行终端命令');
   } else if (kind === 'write') {
     detail = String(value.fileName ?? value.intention ?? '写入或修改文件');
-    if (typeof value.diff === 'string' && value.diff) detail += '\n\n' + value.diff.slice(0, 1400);
+    if (typeof value.diff === 'string' && value.diff) detail += '\n\n' + value.diff;
   } else if (kind === 'read') {
     detail = String(value.path ?? value.intention ?? '读取文件');
   } else if (kind === 'url') {
@@ -44,7 +44,7 @@ function permissionDetails(request: unknown): PermissionRequestInfo {
     detail = String(value.intention ?? kind);
   }
 
-  return { provider: 'copilot', action: kind, description: detail.slice(0, 12000) };
+  return { provider: 'copilot', action: kind, description: detail };
 }
 
 export async function runCopilot(input: ProviderRunInput): Promise<ProviderRunResult> {
