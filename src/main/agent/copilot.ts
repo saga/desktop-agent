@@ -57,11 +57,11 @@ export async function runCopilot(input: ProviderRunInput): Promise<ProviderRunRe
       const requestRecord = request as unknown as Record<string, unknown>;
       const requestedPath = typeof requestRecord.path === 'string' ? requestRecord.path : '';
       const managedApprovalRequired = requestRecord.managedApprovalRequired === true;
-      if (request.kind === 'read' && !managedApprovalRequired) {
+      if (request.kind === 'read') {
         if (!await isInsideWorkspace(input.workingDirectory, requestedPath)) {
           return { kind: 'reject' };
         }
-        return { kind: 'approve-once' };
+        if (!managedApprovalRequired) return { kind: 'approve-once' };
       }
       const allowed = await input.requestPermission(permissionDetails(request));
       if (allowed) input.onSideEffectApproved();
