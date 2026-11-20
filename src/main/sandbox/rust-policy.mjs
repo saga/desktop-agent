@@ -102,7 +102,6 @@ export function buildWasmtimeArgs(wasmtimePath, workspacePath, componentPath) {
     "--wasi", "http=false",
     "--wasi", "max-resources=256",
     "--wasi", "hostcall-fuel=10000000",
-    "--wasi", "max-io-size=1048576",
     "--wasi", "max-component-handles=10000",
     "--wasi", "cwd=/workspace",
     "--dir", workspacePath + "::/workspace",

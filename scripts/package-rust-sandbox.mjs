@@ -72,7 +72,7 @@ for (const option of [
 }
 for (const option of [
   "inherit-env", "inherit-stdin", "inherit-network", "allow-ip-name-lookup",
-  "tcp", "udp", "http", "max-resources", "hostcall-fuel", "max-io-size",
+  "tcp", "udp", "http", "max-resources", "hostcall-fuel",
   "max-component-handles", "cwd",
 ]) {
   if (!wasiHelp.includes(option)) throw new Error("Bundled Wasmtime lacks required WASI policy option: " + option);
