@@ -120,7 +120,6 @@ const rustExecution = rustResourcesAvailable
       tempDirectory: rustTempDirectory,
       platform,
       baseRequest: probeRequest,
-      readonlyPaths,
       rustToolchainDirectory: process.env.RUST_TOOLCHAIN_DIR,
       rustSdkDirectory: process.env.RUST_SDK_DIR,
       rustTemplateDirectory: process.env.RUST_TEMPLATE_DIR,

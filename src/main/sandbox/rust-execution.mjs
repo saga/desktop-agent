@@ -126,7 +126,6 @@ export function createRustExecutionService(options) {
     workspace,
     platform,
     baseRequest,
-    readonlyPaths,
     rustToolchainDirectory,
     rustSdkDirectory,
     rustTemplateDirectory,
@@ -151,8 +150,11 @@ export function createRustExecutionService(options) {
     ] : []),
   ].filter(Boolean);
   const toolPath = [...new Set(toolPathEntries)].join(path.delimiter);
+  const systemReadonlyPaths = platform === "win32"
+    ? [process.env.SystemRoot, process.env.SystemRoot ? path.join(process.env.SystemRoot, "System32") : ""]
+    : ["/System", "/usr", "/bin", "/sbin"];
   const isolatedReadonlyPaths = [...new Set([
-    ...readonlyPaths,
+    ...systemReadonlyPaths.filter(Boolean),
     rustToolchainDirectory,
     rustSdkDirectory,
     path.dirname(wasmtimePath),
