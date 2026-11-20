@@ -52,13 +52,29 @@ function defaultSettings(): AgentSettings {
   };
 }
 
+function isTrustedRendererUrl(value: string): boolean {
+  try {
+    const actual = new URL(value);
+    if (process.env.ELECTRON_RENDERER_URL) {
+      const expected = new URL(process.env.ELECTRON_RENDERER_URL);
+      return actual.origin === expected.origin && actual.pathname === expected.pathname;
+    }
+    const expected = pathToFileURL(path.join(__dirname, '../renderer/index.html'));
+    return actual.protocol === 'file:' && actual.pathname === expected.pathname;
+  } catch {
+    return false;
+  }
+}
+
 function trusted(event: IpcMainEvent | Electron.IpcMainInvokeEvent): void {
   if (
     !mainWindow
     || event.sender !== mainWindow.webContents
     || event.senderFrame !== event.sender.mainFrame
+    || !event.senderFrame
+    || !isTrustedRendererUrl(event.senderFrame.url)
   ) {
-    throw new Error('拒绝来自非应用主框架的请求。');
+    throw new Error('拒绝来自非应用主框架或非应用页面的请求。');
   }
 }
 
@@ -80,7 +96,7 @@ function permissionRequest(
   run: ActiveRun,
   request: PermissionRequestInfo,
 ): Promise<boolean> {
-  if (run.stopRequested || !mainWindow || mainWindow.isDestroyed()) return Promise.resolve(false);
+  if (run.stopRequested || activeRun?.runId !== run.runId || !mainWindow || mainWindow.isDestroyed()) return Promise.resolve(false);
   const approvalId = randomUUID();
 
   return new Promise<boolean>((resolve) => {
@@ -225,6 +241,7 @@ async function runTurn(
         });
       },
       requestPermission: (request) => permissionRequest(run, request),
+      isCancelled: () => run.stopRequested,
       setAbort: (abort) => setRunAbort(run, abort),
     });
 
@@ -323,28 +340,14 @@ function createWindow(): void {
     void mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
   }
 
-  mainWindow.webContents.on('will-navigate', (event, navigationUrl) => {
-    let allowed = false;
-    if (process.env.ELECTRON_RENDERER_URL) {
-      try {
-        allowed = new URL(navigationUrl).origin === new URL(process.env.ELECTRON_RENDERER_URL).origin;
-      } catch {
-        allowed = false;
-      }
-    } else {
-      const rendererEntry = pathToFileURL(path.join(__dirname, '../renderer/index.html'));
-      try {
-        allowed = new URL(navigationUrl).pathname === rendererEntry.pathname
-          && new URL(navigationUrl).protocol === 'file:';
-      } catch {
-        allowed = false;
-      }
-    }
-    if (!allowed) {
+  const blockUntrustedNavigation = (event: Electron.Event, navigationUrl: string) => {
+    if (!isTrustedRendererUrl(navigationUrl)) {
       event.preventDefault();
       console.warn('[security] Blocked navigation away from the local application.', navigationUrl);
     }
-  });
+  };
+  mainWindow.webContents.on('will-navigate', blockUntrustedNavigation);
+  mainWindow.webContents.on('will-redirect', blockUntrustedNavigation);
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     // External navigation is intentionally not opened inside the privileged app window.
@@ -474,7 +477,7 @@ function registerIpc(): void {
     trusted(event);
     if (typeof approvalId !== 'string' || typeof allowed !== 'boolean') return false;
     const pending = pendingApprovals.get(approvalId);
-    if (!pending || !activeRun || pending.runId !== activeRun.runId) return false;
+    if (!pending || !activeRun || activeRun.stopRequested || pending.runId !== activeRun.runId) return false;
     clearTimeout(pending.timeout);
     pendingApprovals.delete(approvalId);
     pending.resolve(allowed);

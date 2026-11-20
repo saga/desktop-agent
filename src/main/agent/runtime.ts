@@ -11,6 +11,7 @@ export interface ProviderRunInput {
   onStatus: (status: string) => void;
   requestPermission: (request: PermissionRequestInfo) => Promise<boolean>;
   onSideEffectApproved: () => void;
+  isCancelled: () => boolean;
   setAbort: (abort: () => Promise<void>) => void;
 }
 
@@ -29,6 +30,7 @@ export interface RuntimeExecutionInput {
   onDelta: (delta: string) => void;
   onFallback: (from: AgentProvider, to: AgentProvider, error: unknown) => Promise<void> | void;
   requestPermission: (request: PermissionRequestInfo) => Promise<boolean>;
+  isCancelled: () => boolean;
   setAbort: (abort: () => Promise<void>) => void;
 }
 
@@ -61,6 +63,7 @@ export async function executeWithFallback(input: RuntimeExecutionInput): Promise
       onSideEffectApproved: () => {
         sideEffectApproved = true;
       },
+      isCancelled: input.isCancelled,
       setAbort: input.setAbort,
     };
 

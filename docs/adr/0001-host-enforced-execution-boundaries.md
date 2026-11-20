@@ -29,6 +29,20 @@ The application is currently a local-first prototype. It does not yet have a cor
 - The product must communicate that approval is per operation and does not reduce the privileges of the underlying process.
 - Enterprise readiness remains blocked until the follow-up controls are implemented and tested.
 
+## Current implementation status
+
+Implemented in the host and provider adapters:
+- Canonical real-path checks for existing workspace reads in both providers.
+- Main-frame IPC sender validation, including application URL validation.
+- Approval responses bound to the active run, with a three-minute timeout.
+- Quota fallback blocked after an approved action that may have side effects.
+- Cancellation checks before admitting new provider tool requests.
+
+Still required before enterprise deployment:
+- Descriptor-relative file access or an OS sandbox to close TOCTOU races.
+- Constrained process execution, network egress control, credential brokering, DLP, and a common PDP/PEP.
+- Durable action journal, tamper-resistant audit, revocation, and incident response.
+
 ## Security invariants
 
 - A read request that cannot be proven to resolve inside the selected workspace is denied.

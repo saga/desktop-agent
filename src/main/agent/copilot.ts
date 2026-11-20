@@ -53,6 +53,7 @@ export async function runCopilot(input: ProviderRunInput): Promise<ProviderRunRe
     model: input.model,
     workingDirectory: input.workingDirectory,
     onPermissionRequest: async (request) => {
+      if (input.isCancelled()) return { kind: 'reject' };
       // Only canonicalized paths inside the workspace qualify for implicit read access.
       const requestRecord = request as unknown as Record<string, unknown>;
       const requestedPath = typeof requestRecord.path === 'string' ? requestRecord.path : '';

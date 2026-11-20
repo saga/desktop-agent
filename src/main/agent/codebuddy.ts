@@ -59,6 +59,7 @@ export async function runCodeBuddy(input: ProviderRunInput): Promise<ProviderRun
     settingSources: [],
     maxTurns: 20,
     canUseTool: async (toolName: string, toolInput: unknown) => {
+      if (input.isCancelled()) return { behavior: 'deny' as const, message: '任务已停止。', interrupt: true };
       if (SAFE_READ_TOOLS.has(toolName) && await readToolPathAllowed(input.workingDirectory, toolName, toolInput)) {
         return { behavior: 'allow' as const, updatedInput: toolInput };
       }
