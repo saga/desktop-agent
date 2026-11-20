@@ -10,6 +10,11 @@ export function providerCandidates(
   return [preferredProvider];
 }
 
+/** A provider switch is unsafe once an approved operation may have changed external state. */
+export function canFallbackAfterSideEffect(sideEffectApproved: boolean): boolean {
+  return !sideEffectApproved;
+}
+
 /** Only provider capacity failures trigger an automatic runtime switch. */
 export function isQuotaError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
