@@ -11,7 +11,7 @@ Provider SDK permission callbacks are not an execution sandbox. Generated native
 
 ## Decision
 
-Add a separate \`execute_rust\` capability to the existing sandbox MCP server. It is available only when a compatible Rust toolchain and Wasmtime CLI are bundled with the application or explicitly configured for development.
+Add a separate `execute_rust` capability to the existing sandbox MCP server. It is available only when a compatible Rust toolchain and Wasmtime CLI are bundled with the application or explicitly configured for development.
 
 The execution pipeline is:
 
@@ -19,12 +19,12 @@ The execution pipeline is:
 2. The trusted MCP helper validates source and input sizes, creates an isolated run directory, and snapshots the selected workspace.
 3. Snapshot creation excludes symlinks, hard-linked files, VCS metadata, dependency/build output, credential directories, and common secret files. The initial implementation has explicit file-count and byte limits.
 4. The helper writes a fixed Cargo manifest, lockfile, SDK dependency, and entry point. The model supplies only the Rust module source and JSON input.
-5. The generated module is compiled to \`wasm32-wasip2\` using an offline, locked Cargo build. The crate root uses \`#![forbid(unsafe_code)]\`; no model-supplied manifest, build script, proc macro, or third-party dependency is accepted.
-6. Wasmtime executes the component with only the staged workspace preopened as \`/workspace\`. WASI environment variables and network capabilities are not inherited or granted.
+5. The generated module is compiled to `wasm32-wasip2` using an offline, locked Cargo build. The crate root uses `#![forbid(unsafe_code)]`; no model-supplied manifest, build script, proc macro, or third-party dependency is accepted.
+6. Wasmtime executes the component with only the staged workspace preopened as `/workspace`. WASI environment variables and network capabilities are not inherited or granted.
 7. Wasmtime uses its pooling allocator with one component/core instance, one memory and table, a 256 MiB maximum linear memory, a 100,000-element table limit, a 100,000,000 fuel budget, a 1 MiB Wasm stack, and a 60-second Wasmtime timeout. MXC also imposes a 60-second wall-clock timeout. Both compiler and runtime processes are launched through MXC with write access restricted to the current run directory and read-only access to the bundled toolchain and SDK.
-8. The helper computes a file-level diff. A separate \`apply_rust_changes\` tool checks for concurrent workspace changes and requires a separate provider approval before applying the diff.
+8. The helper computes a file-level diff. A separate `apply_rust_changes` tool checks for concurrent workspace changes and requires a separate provider approval before applying the diff.
 
-The existing \`run_command\` tool remains the native execution route. Rust/WASM does not replace MXC.
+The existing `run_command` tool remains the native execution route. Rust/WASM does not replace MXC.
 
 ## Capability boundary
 
@@ -34,9 +34,9 @@ The WASI preopen is not the only boundary: the Wasmtime process itself runs in M
 
 ## Packaging
 
-The Rust host toolchain, \`wasm32-wasip2\` standard library, Wasmtime CLI, and SDK are placed under Electron \`extraResources\`, outside ASAR. The packaging script accepts platform-specific prebuilt toolchain/runtime paths. Release packaging must fail if these resources are missing; ordinary development builds may omit the optional feature.
+The Rust host toolchain, `wasm32-wasip2` standard library, Wasmtime CLI, and SDK are placed under Electron `extraResources`, outside ASAR. The packaging script accepts platform-specific prebuilt toolchain/runtime paths. Release packaging must fail if these resources are missing; ordinary development builds may omit the optional feature.
 
-The packaged Wasmtime CLI must be at least 50.0.0. The Rust toolchain must support \`wasm32-wasip2\` (Rust 1.85 or later). Exact versions are recorded in the packaged manifest.
+The packaged Wasmtime CLI must be at least 50.0.0. The Rust toolchain must support `wasm32-wasip2` (Rust 1.85 or later). Exact versions are recorded in the packaged manifest.
 
 ## Consequences and limitations
 
@@ -45,7 +45,7 @@ The packaged Wasmtime CLI must be at least 50.0.0. The Rust toolchain must suppo
 - The SDK's safe path helpers are convenience APIs, not the security boundary. WASI preopens and MXC enforce the boundary.
 - Snapshot copying is deliberately conservative. Symlinks and special files are skipped; empty-directory changes are not represented in the initial diff.
 - The host applies changes only after a second approval and rejects files changed concurrently since snapshot creation.
-- MXC Windows \`base-container\` is not an AppContainer or VM. macOS uses Seatbelt. Neither is described as VM-level isolation.
+- MXC Windows `base-container` is not an AppContainer or VM. macOS uses Seatbelt. Neither is described as VM-level isolation.
 - Runtime escape resistance still depends on current Wasmtime and MXC security fixes. Both must be updated and tested against supported OS versions.
 
 ## Rollout

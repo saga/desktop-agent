@@ -11,7 +11,7 @@
     "build:sandbox": "node scripts/copy-sandbox.mjs",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
-    "test": "tsx --test tests/runtime-policy.test.ts tests/rust-policy.test.ts",
+    "test": "node --check src/main/sandbox/mcp-server.mjs && node --check src/main/sandbox/rust-execution.mjs && node --check src/main/sandbox/rust-policy.mjs && node --check scripts/package-rust-sandbox.mjs && node --check scripts/check-rust-sandbox.mjs && tsx --test tests/runtime-policy.test.ts tests/rust-policy.test.ts",
     "package": "npm run typecheck && npm run test && npm run build && npm run package:rust-sandbox && electron-builder --publish never",
     "package:rust-sandbox": "node scripts/package-rust-sandbox.mjs --require"
   },
