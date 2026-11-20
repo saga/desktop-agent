@@ -48,7 +48,7 @@ if (!wasmtimeVersionMatch || Number(wasmtimeVersionMatch[1]) < 50) {
 }
 const runHelp = execFileSync(wasmtime, ["run", "--help"], { encoding: "utf8" });
 const optimizeHelp = execFileSync(wasmtime, ["run", "-O", "help"], { encoding: "utf8" });
-for (const option of ["--dir", "--optimize", "--wasm"]) {
+for (const option of ["--dir", "--optimize", "--wasm", "--wasi"]) {
   if (!runHelp.includes(option)) throw new Error("Bundled Wasmtime does not support required option: " + option);
 }
 for (const option of ["pooling-allocator", "pooling-max-memory-size", "pooling-total-component-instances"]) {

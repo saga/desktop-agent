@@ -45,7 +45,11 @@ test("Wasmtime execution limits are fixed by the host, not caller input", () => 
   assert.ok(args.includes("/tmp/run/workspace::/workspace"));
   assert.ok(args.includes("fuel=" + WASM_FUEL_LIMIT));
   assert.ok(args.includes("pooling-max-memory-size=" + WASM_MEMORY_LIMIT));
+  assert.ok(args.includes("max-memory-size=" + WASM_MEMORY_LIMIT));
   assert.ok(args.includes("pooling-total-component-instances=1"));
+  assert.ok(args.includes("max-instances=1"));
+  assert.ok(args.includes("inherit-network=false"));
+  assert.ok(args.includes("hostcall-fuel=10000000"));
   assert.ok(args.includes("timeout=60s"));
   assert.equal(args.at(-1), "/tmp/run/task.wasm");
 });
