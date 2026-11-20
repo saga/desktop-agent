@@ -55,7 +55,7 @@ test("file diff distinguishes added, modified and deleted paths", () => {
   const after = new Map([["same.txt", "a"], ["edit.txt", "changed"], ["new.txt", "d"]]);
   assert.deepEqual(compareFileHashes(before, after), [
     { path: "edit.txt", status: "modified" },
-    { path: "new.txt", status: "added" },
     { path: "gone.txt", status: "deleted" },
+    { path: "new.txt", status: "added" },
   ]);
 });
