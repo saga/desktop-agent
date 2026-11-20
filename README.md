@@ -41,3 +41,16 @@ Copilot 模型默认设置为 claude-sonnet-5.5；CodeBuddy 默认设置为 glm-
 - src/main/agent/policy.ts：运行时 fallback 策略和错误分类的纯函数及测试。
 
 SDK 的工具权限在主进程侧处理，不能由 renderer 传入任意 Node.js 调用。会话数据存放在 Electron 的 userData/desktop-agent 目录中；该目录属于本地用户数据，删除应用数据前请自行备份重要对话。
+
+
+## 安全边界与当前限制
+
+当前版本是个人本地使用的原型，不应视为企业级安全运行环境。SDK 的权限回调和用户确认用于表达单次操作意图，不构成 OS 级沙箱，也不会自动降低本机进程的文件、网络或凭证权限。
+
+工作区读取会先解析文件系统真实路径，拒绝普通的符号链接越界；该检查仍不能完全消除并发文件替换造成的 TOCTOU 竞态。额度 fallback 在已经批准过可能产生副作用的操作后会停止自动重放，避免跨 Provider 重复执行。
+
+相关架构决策见：
+- [ADR-0001：Host-Enforced Execution Boundaries](docs/adr/0001-host-enforced-execution-boundaries.md)
+- [ADR-0002：Safe Provider Fallback](docs/adr/0002-safe-provider-fallback.md)
+
+在企业部署前，仍需实现 OS 级进程隔离、统一 Policy Decision/Enforcement、网络出口控制、凭证代理、DLP、供应链验证和安全审计。
