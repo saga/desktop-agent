@@ -67,7 +67,7 @@ jobs:
         shell: bash
         run: |
           curl -fL "https://github.com/bytecodealliance/wasmtime/releases/download/v50.0.1/${{ matrix.wasmtime_asset }}" -o "$RUNNER_TEMP/wasmtime-archive"
-          echo "${{ matrix.sha256 }}  $RUNNER_TEMP/wasmtime-archive" | sha256sum --check
+          node -e 'const fs=require("fs");const crypto=require("crypto");const actual=crypto.createHash("sha256").update(fs.readFileSync(process.argv[1])).digest("hex");if(actual!==process.argv[2])throw new Error("Wasmtime archive SHA-256 mismatch: "+actual)' "$RUNNER_TEMP/wasmtime-archive" "${{ matrix.sha256 }}"
           mkdir -p "$RUNNER_TEMP/wasmtime"
           if [ "${{ matrix.archive }}" = "zip" ]; then
             python -c "import zipfile; zipfile.ZipFile(r'$RUNNER_TEMP/wasmtime-archive').extractall(r'$RUNNER_TEMP/wasmtime')"
