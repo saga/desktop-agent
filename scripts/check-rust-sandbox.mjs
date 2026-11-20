@@ -6,7 +6,9 @@ import { fileURLToPath } from "node:url";
 import { createRustExecutionService } from "../src/main/sandbox/rust-execution.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const packagedRoot = path.join(root, "resources", "rust-sandbox");
+const packagedRoot = process.env.DESKTOP_AGENT_RUST_SANDBOX_DIR
+  ? path.resolve(process.env.DESKTOP_AGENT_RUST_SANDBOX_DIR)
+  : path.join(root, "resources", "rust-sandbox");
 const sdk = path.join(packagedRoot, "sdk");
 const executable = process.platform === "win32" ? ".exe" : "";
 const manifest = JSON.parse(await fs.readFile(path.join(packagedRoot, "manifest.json"), "utf8"));

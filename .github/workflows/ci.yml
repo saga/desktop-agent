@@ -80,8 +80,32 @@ jobs:
           echo "DESKTOP_AGENT_RUST_TOOLCHAIN_DIR=$(rustc --print sysroot)" >> "$GITHUB_ENV"
       - name: Build real platform installer and verify bundled WASI runtime
         run: npm run package
-      - name: Run installed-resource WASI integration test
-        run: node scripts/check-rust-sandbox.mjs
+      - name: Mount DMG and test the installed app resources
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          dmg="$(find release -maxdepth 1 -name '*.dmg' -print -quit)"
+          test -n "$dmg"
+          mount="$RUNNER_TEMP/desktop-agent-dmg"
+          mkdir -p "$mount"
+          hdiutil attach "$dmg" -nobrowse -readonly -mountpoint "$mount"
+          app="$(find "$mount" -maxdepth 1 -name '*.app' -print -quit)"
+          test -n "$app"
+          export DESKTOP_AGENT_RUST_SANDBOX_DIR="$app/Contents/Resources/rust-sandbox"
+          node scripts/check-rust-sandbox.mjs
+          hdiutil detach "$mount"
+      - name: Install NSIS package and test installed app resources
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem release -Filter *.exe | Select-Object -First 1
+          if (-not $installer) { throw "NSIS installer was not generated." }
+          $installDir = Join-Path $env:RUNNER_TEMP "desktop-agent-installed"
+          $process = Start-Process -FilePath $installer.FullName -ArgumentList @("/S", "/D=$installDir") -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "NSIS installer failed with exit code $($process.ExitCode)." }
+          $env:DESKTOP_AGENT_RUST_SANDBOX_DIR = Join-Path $installDir "resources\rust-sandbox"
+          node scripts/check-rust-sandbox.mjs
+          if ($LASTEXITCODE -ne 0) { throw "Installed WASI resource integration test failed." }
       - name: Report installer size and signing state
         shell: bash
         run: |
