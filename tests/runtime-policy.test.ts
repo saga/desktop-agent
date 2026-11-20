@@ -49,7 +49,8 @@ test('workspace validation rejects symlink escapes and paths that cannot be reso
     await fs.symlink(outside, path.join(root, 'external'), 'dir');
     assert.equal(await isInsideWorkspace(root, 'external/secret.txt'), false);
     assert.equal(await isInsideWorkspace(root, 'missing.txt'), false);
-    assert.equal(await isInsideWorkspace(root, '../desktop-agent-outside/secret.txt'), false);
+    assert.equal(await isInsideWorkspace(root, path.join(outside, 'secret.txt')), false);
+    assert.equal(await isInsideWorkspace(root, path.relative(root, path.join(outside, 'secret.txt'))), false);
   } finally {
     await fs.rm(root, { recursive: true, force: true });
     await fs.rm(outside, { recursive: true, force: true });
