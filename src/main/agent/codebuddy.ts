@@ -19,7 +19,7 @@ async function readToolPathAllowed(root: string, toolName: string, toolInput: un
   if (!toolInput || typeof toolInput !== 'object' || Array.isArray(toolInput)) return false;
   const input = toolInput as Record<string, unknown>;
   if (toolName === 'Glob') {
-    const pattern = typeof input.pattern === 'string' ? input.pattern.replace(/\\\\/g, '/') : '';
+    const pattern = typeof input.pattern === 'string' ? input.pattern.replaceAll(String.fromCharCode(92), '/') : '';
     if (!pattern || pattern.startsWith('/') || /^[A-Za-z]:/.test(pattern) || pattern.split('/').includes('..')) return false;
   }
   if (toolName === 'Read') {
