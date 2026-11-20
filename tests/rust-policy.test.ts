@@ -31,7 +31,7 @@ test("workspace paths reject absolute paths, traversal, empty segments and drive
 });
 
 test("snapshot excludes credentials, dependency trees and build output", () => {
-  for (const name of [".git", ".ssh", ".aws", "node_modules", "target", ".desktop-agent", ".env", ".env.local", ".npmrc", ".config", "secrets", "credentials.json", "id_rsa", "private.pem", "private.PEM"]) {
+  for (const name of [".git", ".ssh", ".aws", "node_modules", "target", ".desktop-agent", ".env", ".env.local", ".npmrc", ".config", ".local", ".rustup", ".cargo", ".mozilla", "Library", "AppData", "Keychains", "secrets", "credentials.json", "id_rsa", "private.pem", "private.PEM", "identity.P12", "SSH_HOST_RSA_KEY"]) {
     assert.equal(isExcludedWorkspaceEntry(name, false), true, name);
   }
   assert.equal(isExcludedWorkspaceEntry("src", true), false);

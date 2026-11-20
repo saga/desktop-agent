@@ -23,9 +23,18 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-wasip2
+      - name: Download and verify Wasmtime 50.0.1
+        run: |
+          curl -fsSL https://github.com/bytecodealliance/wasmtime/releases/download/v50.0.1/wasmtime-v50.0.1-x86_64-linux.tar.xz -o "$RUNNER_TEMP/wasmtime.tar.xz"
+          echo "685466455dd42a14774a86c36c8f2e45cbb9bd6d92a850139315df60a75498a5  $RUNNER_TEMP/wasmtime.tar.xz" | sha256sum --check
+          mkdir -p "$RUNNER_TEMP/wasmtime"
+          tar -xJf "$RUNNER_TEMP/wasmtime.tar.xz" -C "$RUNNER_TEMP/wasmtime"
+          echo "WASMTIME_BIN=$RUNNER_TEMP/wasmtime/wasmtime-v50.0.1-x86_64-linux/wasmtime" >> "$GITHUB_ENV"
       - name: Install dependencies
         run: npm install --no-audit --no-fund
-      - name: Check Rust WASM guest template
+      - name: Package Rust toolchain and verify Wasmtime CLI options
+        run: DESKTOP_AGENT_RUST_TOOLCHAIN_DIR="$(rustc --print sysroot)" DESKTOP_AGENT_WASMTIME_BIN="$WASMTIME_BIN" npm run package:rust-sandbox
+      - name: Compile and execute Rust WASM guest
         run: node scripts/check-rust-sandbox.mjs
       - name: Type-check
         run: npm run typecheck

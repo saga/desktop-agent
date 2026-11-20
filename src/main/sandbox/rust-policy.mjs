@@ -11,12 +11,15 @@ const excludedNames = new Set([
   ".git", ".ssh", ".aws", ".azure", ".kube", ".docker", ".gnupg",
   "node_modules", "target", "dist", "build", "release", "coverage",
   ".next", ".nuxt", ".cache", ".venv", "venv", "__pycache__",
-  ".idea", ".vscode", ".desktop-agent", ".config", "secrets", ".secrets",
+  ".idea", ".vscode", ".desktop-agent", ".config", ".local", ".rustup", ".cargo",
+  ".npm", ".mozilla", ".thunderbird", ".pki", ".password-store", ".vscode-server",
+  ".cursor", ".claude", ".codebuddy", ".copilot", "library", "appdata",
+  "application support", "keychains", "secrets", ".secrets",
   ".terraform", ".pulumi", "out", "vendor", ".turbo", ".parcel-cache",
 ]);
 
 const excludedFiles = new Set([
-  ".npmrc", ".pypirc", ".netrc", ".yarnrc", ".DS_Store", ".envrc",
+  ".npmrc", ".pypirc", ".netrc", ".yarnrc", ".ds_store", ".envrc",
   ".git-credentials", ".credentials", "credentials", "credentials.json",
   "service-account.json", "terraform.tfstate",
 ]);
@@ -52,11 +55,17 @@ export function isSafeRelativePath(value) {
 }
 
 export function isExcludedWorkspaceEntry(name, isDirectory) {
-  if (excludedNames.has(name) || excludedFiles.has(name)) return true;
-  if (name === ".env" || name.startsWith(".env.")) return true;
-  if (name.toLowerCase().includes("id_rsa") || name.toLowerCase().includes("id_ed25519")) return true;
   const lowerName = name.toLowerCase();
-  if (!isDirectory && [".pem", ".key", ".p12", ".pfx", ".jks", ".tfstate"].some((suffix) => lowerName.endsWith(suffix))) return true;
+  if (excludedNames.has(lowerName) || excludedFiles.has(lowerName)) return true;
+  if (lowerName === ".env" || lowerName.startsWith(".env.")) return true;
+  if (
+    lowerName.includes("id_rsa")
+    || lowerName.includes("id_ed25519")
+    || lowerName.startsWith("ssh_host_")
+  ) return true;
+  if (!isDirectory && [
+    ".pem", ".key", ".p12", ".pfx", ".jks", ".tfstate", ".p8", ".kdbx", ".mobileprovision",
+  ].some((suffix) => lowerName.endsWith(suffix))) return true;
   return false;
 }
 
