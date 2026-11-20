@@ -8,8 +8,12 @@ import { buildWasmtimeArgs } from "../src/main/sandbox/rust-policy.mjs";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const template = path.join(root, "src", "main", "sandbox", "rust-template");
 const sdk = path.join(root, "src", "main", "sandbox", "rust-sdk");
-const wasmtime = process.env.WASMTIME_BIN;
-if (!wasmtime) throw new Error("WASMTIME_BIN is required to run the Rust/WASM integration check.");
+const packagedRoot = path.join(root, "resources", "rust-sandbox");
+const executable = process.platform === "win32" ? ".exe" : "";
+const packagedToolchain = path.join(packagedRoot, "rust-toolchain");
+const cargo = path.join(packagedToolchain, "bin", "cargo" + executable);
+const rustc = path.join(packagedToolchain, "bin", "rustc" + executable);
+const wasmtime = path.join(packagedRoot, "wasmtime", "wasmtime" + executable);
 const temporaryRoot = await fs.mkdtemp(path.join(os.tmpdir(), "desktop-agent-rust-check-"));
 const project = path.join(temporaryRoot, "project");
 
@@ -41,7 +45,7 @@ try {
 
   const cargoHome = path.join(temporaryRoot, "cargo-home");
   await fs.mkdir(cargoHome, { recursive: true });
-  execFileSync("cargo", [
+  execFileSync(cargo, [
     "build",
     "--offline",
     "--locked",
@@ -56,6 +60,8 @@ try {
     env: {
       ...process.env,
       CARGO_HOME: cargoHome,
+      RUSTC: rustc,
+      PATH: [path.join(packagedToolchain, "bin"), path.dirname(wasmtime), process.env.PATH ?? ""].filter(Boolean).join(path.delimiter),
       CARGO_NET_OFFLINE: "true",
       CARGO_TERM_COLOR: "never",
     },
