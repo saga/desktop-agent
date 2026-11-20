@@ -42,6 +42,7 @@ The packaged Wasmtime CLI must be at least 50.0.1. Version 50.0.0 is rejected be
 
 - The first implementation is a constrained code-execution backend, not a general-purpose Rust development environment.
 - It does not support arbitrary Cargo dependencies, build scripts, procedural macros, shell commands, native FFI, or network access.
+- The native Rust compiler is bounded by source-size and wall-clock limits but has no hard per-process memory quota under MXC. Wasmtime caps guest linear memory at 256 MiB; runtime/host overhead is not a separate OS-enforced memory quota.
 - The SDK's safe path helpers are convenience APIs, not the security boundary. WASI preopens and MXC enforce the boundary.
 - Snapshot copying is deliberately conservative. Symlinks, hard-linked files, and special files are skipped; empty-directory changes are not represented in the initial diff. The 100 MiB snapshot cap is checked before and after execution, not enforced as a live OS disk quota, so guest code can temporarily consume more space until the runtime timeout and cleanup.
 - The host applies changes only after a second approval and rejects files changed concurrently since snapshot creation.
