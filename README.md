@@ -7,50 +7,33 @@ Desktop Agent 是一个本地优先的桌面 Agent 工作台，技术栈为 Elec
 - 以 Ant Design X 的消息气泡与输入组件为基础，采用 Tbox 风格的对话工作台：会话导航、快捷任务建议、运行状态和主输入区。
 - Copilot 与 CodeBuddy 通过独立适配器接入；会话、运行事件、停止执行与错误处理由宿主统一管理。
 - 对话历史和偏好设置写入 Electron 用户数据目录，应用重启后仍可恢复。
-- Agent 执行期间支持流式输出和停止；文件修改、终端命令、网络访问等需要权限的动作会先显示操作详情，再由用户批准或拒绝。
-- 默认优先使用 GitHub Copilot；只有检测到配额、请求频率或资源耗尽类错误时，才自动切换到 CodeBuddy。普通工具、认证和代码错误不会触发 fallback。
-- 工作目录默认为 Documents 下的 Desktop Agent Workspace，可在偏好设置中切换到需要处理的项目目录。
+- Agent 执行期间支持流式输出和停止；非只读工具操作需要主进程发起的单次用户确认。
+- 默认优先使用 GitHub Copilot；只有检测到配额、请求频率或资源耗尽类错误时，才自动切换到 CodeBuddy。已批准可能产生副作用的操作后不会自动重放任务。
+- 工作目录默认为 Documents 下的 Desktop Agent Workspace，可在偏好设置中切换。
 
 ## 开发环境
 
-需要 Node.js 22.13 或更高版本。安装依赖后运行：
-
-- npm install
-- npm run dev
-- npm run typecheck
-- npm test
-- npm run build
-
-执行 npm run package 会先进行类型检查和策略测试，再构建应用并调用 electron-builder 生成当前操作系统的安装包。
+需要 Node.js 22.13 或更高版本。安装依赖后运行 `npm run dev`。验证命令为 `npm run typecheck`、`npm test` 和 `npm run build`。
 
 ## Agent 认证
 
-应用复用本机 Agent 运行时的登录状态，不在 renderer 中保存访问令牌。
-
-- GitHub Copilot：先安装并登录本机 GitHub Copilot CLI / SDK 所需运行环境。首次调用时如果认证不可用，应用会显示可读错误。
-- CodeBuddy：先安装 CodeBuddy Code 并完成登录。若 Copilot 发生配额耗尽，且已开启额度 fallback，应用会自动尝试 CodeBuddy。
-
-Copilot 模型默认设置为 claude-sonnet-5.5；CodeBuddy 默认设置为 glm-5.3-flash。两者均可在偏好设置中修改。若账号当前并不提供相应模型，请选择该账号实际可用的模型名称。
+应用复用本机 Agent 运行时的登录状态，不在 Renderer 中保存访问令牌。GitHub Copilot 和 CodeBuddy 需要分别在本机完成认证。
 
 ## 架构边界
 
-- src/main：Electron 主进程、会话与设置持久化、运行时编排、Copilot/CodeBuddy 适配器。
-- src/preload：隔离后的最小 IPC API，不向页面暴露 Node.js 或原始 IPC。
-- src/renderer：React + Ant Design X 对话工作台。
-- src/shared：主进程、preload 与 renderer 共享的类型和 IPC 合同。
-- src/main/agent/policy.ts：运行时 fallback 策略和错误分类的纯函数及测试。
-
-SDK 的工具权限在主进程侧处理，不能由 renderer 传入任意 Node.js 调用。会话数据存放在 Electron 的 userData/desktop-agent 目录中；该目录属于本地用户数据，删除应用数据前请自行备份重要对话。
-
+- `src/main`：Electron 主进程、会话与设置持久化、运行时编排和 SDK 适配器。
+- `src/preload`：隔离后的最小 IPC API，不向页面暴露 Node.js 或原始 IPC。
+- `src/renderer`：React 对话工作台。
+- `src/shared`：共享类型和 IPC 合同。
+- `src/main/agent/workspace.ts`：共享工作区读取校验。
+- `src/main/agent/policy.ts`：Provider fallback 和错误分类，不承担授权策略职责。
 
 ## 安全边界与当前限制
 
-当前版本是个人本地使用的原型，不应视为企业级安全运行环境。SDK 的权限回调和用户确认用于表达单次操作意图，不构成 OS 级沙箱，也不会自动降低本机进程的文件、网络或凭证权限。
+当前版本是个人本地使用的原型，不应视为企业级安全运行环境。SDK 权限回调和用户确认表达单次操作意图，不构成 OS 级沙箱，也不会自动降低本机进程的文件、网络或凭证权限。
 
-工作区读取会先解析文件系统真实路径，拒绝普通的符号链接越界；该检查仍不能完全消除并发文件替换造成的 TOCTOU 竞态。额度 fallback 在已经批准过可能产生副作用的操作后会停止自动重放，避免跨 Provider 重复执行。
+工作区读取会解析文件系统真实路径，拒绝普通符号链接越界和明显的 Glob 路径穿越；这仍不能消除检查与使用之间的 TOCTOU 竞态。所有非只读工具仍由 SDK 运行时执行，用户批准后可能获得本机用户权限。
 
-相关架构决策见：
-- [ADR-0001：Host-Enforced Execution Boundaries](docs/adr/0001-host-enforced-execution-boundaries.md)
-- [ADR-0002：Safe Provider Fallback](docs/adr/0002-safe-provider-fallback.md)
+企业部署前仍需实现 OS 级进程隔离、文件句柄级边界、网络出口控制、凭证隔离、数据治理和可审计的撤销机制。当前不建设独立 PAP/PIP 服务或策略 DSL，避免为单用户桌面应用引入没有实际使用场景的策略平台。
 
-在企业部署前，仍需实现 OS 级进程隔离、统一 Policy Decision/Enforcement、网络出口控制、凭证代理、DLP、供应链验证和安全审计。
+架构决策见 [ADR 目录](docs/adr/README.md)。

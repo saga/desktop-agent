@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { canFallbackAfterSideEffect, isQuotaError, providerCandidates } from '../src/main/agent/policy.js';
-import { isInsideWorkspace } from '../src/main/agent/workspace.js';
+import { isInsideWorkspace, isWorkspaceReadAllowed } from '../src/main/agent/workspace.js';
 
 test('quota and rate-limit failures are recognized for fallback', () => {
   assert.equal(isQuotaError(new Error('Monthly premium request quota exhausted')), true);
@@ -36,6 +36,8 @@ test('workspace validation accepts canonical paths inside the workspace', async 
     await fs.writeFile(path.join(root, 'src', 'index.ts'), 'export {};');
     assert.equal(await isInsideWorkspace(root, 'src/index.ts'), true);
     assert.equal(await isInsideWorkspace(root, root), true);
+    assert.equal(await isWorkspaceReadAllowed(root, 'Read', { file_path: 'src/index.ts' }), true);
+    assert.equal(await isWorkspaceReadAllowed(root, 'Read', {}), false);
   } finally {
     await fs.rm(root, { recursive: true, force: true });
   }
@@ -50,6 +52,9 @@ test('workspace validation rejects symlink escapes and paths that cannot be reso
     assert.equal(await isInsideWorkspace(root, 'external/secret.txt'), false);
     assert.equal(await isInsideWorkspace(root, 'missing.txt'), false);
     assert.equal(await isInsideWorkspace(root, path.join(outside, 'secret.txt')), false);
+    assert.equal(await isWorkspaceReadAllowed(root, 'Glob', { pattern: '../**/*' }), false);
+    assert.equal(await isWorkspaceReadAllowed(root, 'Glob', { pattern: 'C:\\**\\*' }), false);
+    assert.equal(await isWorkspaceReadAllowed(root, 'Grep', { path: 'external' }), false);
     assert.equal(await isInsideWorkspace(root, path.relative(root, path.join(outside, 'secret.txt'))), false);
   } finally {
     await fs.rm(root, { recursive: true, force: true });

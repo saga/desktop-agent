@@ -1,38 +1,7 @@
 import { query } from '@tencent-ai/agent-sdk';
 import type { PermissionRequestInfo } from '../../shared/contracts.js';
 import type { ProviderRunInput, ProviderRunResult } from './runtime.js';
-import { isInsideWorkspace } from './workspace.js';
-
-const SAFE_READ_TOOLS = new Set([
-  'Read',
-  'Glob',
-  'Grep',
-  'LS',
-  'Skill',
-  'AskUserQuestion',
-  'TodoRead',
-  'TaskGet',
-]);
-
-async function readToolPathAllowed(root: string, toolName: string, toolInput: unknown): Promise<boolean> {
-  if (!SAFE_READ_TOOLS.has(toolName)) return true;
-  if (!toolInput || typeof toolInput !== 'object' || Array.isArray(toolInput)) return false;
-  const input = toolInput as Record<string, unknown>;
-  if (toolName === 'Glob') {
-    const pattern = typeof input.pattern === 'string' ? input.pattern.replaceAll(String.fromCharCode(92), '/') : '';
-    if (!pattern || pattern.startsWith('/') || /^[A-Za-z]:/.test(pattern) || pattern.split('/').includes('..')) return false;
-  }
-  if (toolName === 'Read') {
-    const candidate = typeof input.file_path === 'string' ? input.file_path : input.path;
-    return typeof candidate === 'string' && await isInsideWorkspace(root, candidate);
-  }
-  for (const key of ['file_path', 'path', 'directory', 'search_path', 'cwd']) {
-    if (!(key in input)) continue;
-    const candidate = input[key];
-    if (typeof candidate !== 'string' || !await isInsideWorkspace(root, candidate)) return false;
-  }
-  return true;
-}
+import { isWorkspaceReadAllowed, SAFE_READ_TOOLS } from './workspace.js';
 
 function describeToolRequest(toolName: string, toolInput: unknown): PermissionRequestInfo {
   let detail = '';
@@ -54,19 +23,18 @@ export async function runCodeBuddy(input: ProviderRunInput): Promise<ProviderRun
     model: input.model,
     cwd: input.workingDirectory,
     // The SDK permission bypass is paired with a host-side tool gate below.
-    // Mutating or execution tools are never admitted without user approval.
     permissionMode: 'bypassPermissions' as const,
     settingSources: [],
     maxTurns: 20,
     canUseTool: async (toolName: string, toolInput: unknown) => {
       if (input.isCancelled()) return { behavior: 'deny' as const, message: '任务已停止。', interrupt: true };
-      if (SAFE_READ_TOOLS.has(toolName) && await readToolPathAllowed(input.workingDirectory, toolName, toolInput)) {
-        return { behavior: 'allow' as const, updatedInput: toolInput };
-      }
       if (SAFE_READ_TOOLS.has(toolName)) {
+        if (await isWorkspaceReadAllowed(input.workingDirectory, toolName, toolInput)) {
+          return { behavior: 'allow' as const, updatedInput: toolInput };
+        }
         return {
           behavior: 'deny' as const,
-          message: '只允许读取当前工作目录内的真实文件。目标不存在、无法验证或位于工作区外时会被拒绝。',
+          message: '只允许读取当前工作目录内可验证的文件和目录；路径或 Glob 模式无法验证时会被拒绝。',
           interrupt: false,
         };
       }
@@ -82,14 +50,8 @@ export async function runCodeBuddy(input: ProviderRunInput): Promise<ProviderRun
     },
   } as NonNullable<Parameters<typeof query>[0]['options']>;
 
-  const agentQuery = query({
-    prompt: input.prompt,
-    options: queryOptions,
-  });
-
-  input.setAbort(async () => {
-    await agentQuery.interrupt();
-  });
+  const agentQuery = query({ prompt: input.prompt, options: queryOptions });
+  input.setAbort(async () => { await agentQuery.interrupt(); });
 
   for await (const message of agentQuery) {
     const raw = message as unknown as Record<string, unknown>;

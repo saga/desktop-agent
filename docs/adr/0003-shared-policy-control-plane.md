@@ -6,40 +6,40 @@
 
 ## Context
 
-The current `policy.ts` module handles provider selection, quota detection, and fallback safety. It is not an authorization policy engine. Authorization is expressed through provider-specific SDK callbacks, which makes controls difficult to apply consistently as the product adds filesystem, process, network, MCP, Browser, Computer Use, Connector, and artifact-export capabilities.
+The current `policy.ts` module handles provider selection, quota detection, and fallback safety. It is not an authorization policy engine. Authorization is expressed through provider-specific SDK callbacks, which makes controls difficult to apply consistently as the product adds execution channels.
 
-The product needs one host-owned decision and enforcement model. It should be introduced incrementally and should not require replacing the Electron shell or current SDK adapters.
+The product needs one host-owned enforcement contract, but the current application is a single-user local desktop tool. A remote policy administration service, elaborate PAP/PIP services, and a generic policy language would add complexity without a current use case.
 
 ## Decision
 
-Introduce a normalized Action Request and a shared host-side Policy Control Plane.
+Keep the first implementation deliberately small:
 
-The control plane separates five responsibilities:
+1. SDK adapters translate provider requests into host-owned authorization checks.
+2. Workspace read checks are shared and fail closed when paths or patterns cannot be validated.
+3. Every other tool operation requires explicit host-mediated user approval.
+4. Approval remains bound to the active run and expires; it is not a reusable capability.
+5. Provider adapters do not independently invent authorization rules beyond translating their SDK request shape.
+6. Do not introduce a remote PAP/PIP, policy DSL, role hierarchy, or policy administration UI until multi-user organizational policy is a real product requirement.
 
-- **Policy Administration Point (PAP):** authoring, approval, versioning, and publishing policy.
-- **Policy Information Point (PIP):** trusted identity, task, device posture, resource ownership, data classification, and destination context.
-- **Policy Decision Point (PDP):** evaluate an action and return Allow, Deny, Require Approval, Step-up Authentication, or Allow with Constraints.
-- **Policy Enforcement Point (PEP):** enforce the decision at the actual execution boundary, not merely in the prompt or UI.
-- **Policy Audit:** correlate the policy version, decision, approval, action, and execution outcome.
+The current local decision outcomes are intentionally limited to **Allow**, **Deny**, and **Require user approval**. More granular decisions such as Step-up Authentication and Allow with Constraints should be added only when an execution channel can enforce them.
 
-Every Action Request must carry stable run and session identity, provider/tool identity, action category, normalized resource and parameters, destination where relevant, and a digest of the exact parameters. Decisions and approvals are short-lived and bound to the action digest. Any material parameter change requires a new decision.
+## Required execution boundary
 
-The Renderer may present a decision request but cannot grant capabilities itself. A user approval cannot override an organizational Deny. High-risk operations fail closed when policy evaluation is unavailable.
+The shared host policy is an authorization gate, not a sandbox. Any process execution still runs with the operating-system identity and privileges available to the SDK runtime. Enterprise-grade enforcement requires OS-level process isolation and restricted filesystem/network access.
 
-All execution channels must converge on the same enforcement contract: filesystem, process, network, connectors, MCP, Browser, Computer Use, and artifact export. SDK adapters translate provider-specific requests; they do not own enterprise authorization policy.
+Before adding new execution channels, each must use the same host authorization contract. Network, connector, MCP, browser, computer-use, and artifact-export support must not bypass it.
 
 ## Rollout
 
-1. Normalize Action Requests and centralize the existing local approval flow.
-2. Add a local PDP/PEP for file and process execution, including resource and parameter binding.
-3. Introduce Execution Profiles with OS-enforced filesystem, process, network, and resource limits.
-4. Add Credential Broker and controlled network egress; apply data classification and DLP to model inputs, tools, artifacts, logs, and exports.
-5. Extend enforcement to MCP, Browser, Computer Use, and enterprise Connectors.
-6. Add policy administration, tamper-resistant audit, revocation, monitoring, Kill Switch, and incident response.
+1. Share workspace read validation and keep all non-read tool actions behind host approval.
+2. Add OS-enforced process and filesystem isolation before claiming constrained execution.
+3. Add network egress restrictions and credential isolation if remote tools or enterprise data access are introduced.
+4. Add data classification, DLP, durable audit, revocation, and incident response when enterprise deployment is in scope.
 
 ## Consequences
 
-- New execution channels cannot introduce independent permission logic.
-- The current SDK callback implementation remains a transitional local gate, not a complete PDP/PEP.
-- This decision does not claim that enterprise policy administration, workload identity, DLP, network egress enforcement, or OS sandboxing already exists.
-- Enterprise deployment remains blocked until enforcement points are implemented and tested across every execution path.
+- The design avoids building a policy platform ahead of product requirements.
+- The host remains the single place to evolve authorization behavior.
+- Existing SDK adapters and Electron architecture remain intact.
+- This ADR does not claim that OS sandboxing, network egress enforcement, credential brokering, DLP, or enterprise audit already exists.
+- Enterprise deployment remains blocked until the relevant enforcement points are implemented and tested.
