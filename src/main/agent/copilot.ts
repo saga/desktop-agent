@@ -51,7 +51,7 @@ export async function runCopilot(input: ProviderRunInput): Promise<ProviderRunRe
         args: input.sandboxMcpServer.args,
         env: input.sandboxMcpServer.env,
         tools: ['run_command', 'execute_rust', 'apply_rust_changes'],
-        timeout: 30000,
+        timeout: 660000,
       },
     },
     onPermissionRequest: async (request) => {

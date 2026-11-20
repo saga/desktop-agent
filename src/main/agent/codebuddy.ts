@@ -23,7 +23,7 @@ export async function runCodeBuddy(input: ProviderRunInput): Promise<ProviderRun
         command: input.sandboxMcpServer.command,
         args: input.sandboxMcpServer.args,
         env: input.sandboxMcpServer.env,
-        timeout: 30000,
+        timeout: 660000,
       },
     },
     maxTurns: 20,
