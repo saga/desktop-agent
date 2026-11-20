@@ -16,13 +16,16 @@ const SAFE_READ_TOOLS = new Set([
 
 async function readToolPathAllowed(root: string, toolName: string, toolInput: unknown): Promise<boolean> {
   if (!SAFE_READ_TOOLS.has(toolName)) return true;
-  if (!toolInput || typeof toolInput !== 'object') return true;
+  if (!toolInput || typeof toolInput !== 'object' || Array.isArray(toolInput)) return false;
   const input = toolInput as Record<string, unknown>;
+  if (toolName === 'Read') {
+    const candidate = typeof input.file_path === 'string' ? input.file_path : input.path;
+    return typeof candidate === 'string' && await isInsideWorkspace(root, candidate);
+  }
   for (const key of ['file_path', 'path', 'directory', 'search_path', 'cwd']) {
+    if (!(key in input)) continue;
     const candidate = input[key];
-    if (typeof candidate === 'string' && candidate.trim()) {
-      if (!await isInsideWorkspace(root, candidate.trim())) return false;
-    }
+    if (typeof candidate !== 'string' || !await isInsideWorkspace(root, candidate)) return false;
   }
   return true;
 }
@@ -37,7 +40,7 @@ function describeToolRequest(toolName: string, toolInput: unknown): PermissionRe
   return {
     provider: 'codebuddy',
     action: toolName,
-    description: (toolName + (detail ? '\n\n' + detail : '')).slice(0, 12000),
+    description: toolName + (detail ? '\n\n' + detail : ''),
   };
 }
 
