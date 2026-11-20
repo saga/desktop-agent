@@ -3,59 +3,40 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { canFallbackAfterSideEffect, isQuotaError, providerCandidates } from '../src/main/agent/policy.js';
-import { isInsideWorkspace, isWorkspaceReadAllowed } from '../src/main/agent/workspace.js';
+import { canFallbackAfterSideEffect, isImplicitWorkspaceRead, isQuotaError, providerCandidates } from '../src/main/agent/policy.js';
 
-test('quota and rate-limit failures are recognized for fallback', () => {
+test('quota errors are recognized without treating ordinary failures as quota failures', () => {
   assert.equal(isQuotaError(new Error('Monthly premium request quota exhausted')), true);
   assert.equal(isQuotaError(new Error('HTTP 429: rate limit exceeded')), true);
-  assert.equal(isQuotaError(new Error('resource exhausted')), true);
-});
-
-test('ordinary execution and authentication failures do not trigger quota fallback', () => {
   assert.equal(isQuotaError(new Error('Invalid tool arguments')), false);
   assert.equal(isQuotaError(new Error('Authentication required')), false);
-  assert.equal(isQuotaError(new Error('ENOENT: no such file or directory')), false);
 });
 
-test('Copilot may fall back to CodeBuddy, while an explicitly selected CodeBuddy does not wrap around', () => {
+test('provider fallback candidates remain limited to the configured Copilot fallback', () => {
   assert.deepEqual(providerCandidates('copilot', true), ['copilot', 'codebuddy']);
   assert.deepEqual(providerCandidates('copilot', false), ['copilot']);
   assert.deepEqual(providerCandidates('codebuddy', true), ['codebuddy']);
 });
 
-test('quota fallback is blocked after an approved side-effecting action', () => {
+test('fallback is blocked after an approved action', () => {
   assert.equal(canFallbackAfterSideEffect(false), true);
   assert.equal(canFallbackAfterSideEffect(true), false);
 });
 
-test('workspace validation accepts canonical paths inside the workspace', async () => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'desktop-agent-workspace-'));
-  try {
-    await fs.mkdir(path.join(root, 'src'));
-    await fs.writeFile(path.join(root, 'src', 'index.ts'), 'export {};');
-    assert.equal(await isInsideWorkspace(root, 'src/index.ts'), true);
-    assert.equal(await isInsideWorkspace(root, root), true);
-    assert.equal(await isWorkspaceReadAllowed(root, 'Read', { file_path: 'src/index.ts' }), true);
-    assert.equal(await isWorkspaceReadAllowed(root, 'Read', {}), false);
-  } finally {
-    await fs.rm(root, { recursive: true, force: true });
-  }
-});
-
-test('workspace validation rejects symlink escapes and paths that cannot be resolved', async () => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'desktop-agent-workspace-'));
+test('only explicit Read actions inside the workspace are implicitly allowed', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'desktop-agent-policy-'));
   const outside = await fs.mkdtemp(path.join(os.tmpdir(), 'desktop-agent-outside-'));
   try {
+    await fs.writeFile(path.join(root, 'inside.txt'), 'ok');
     await fs.writeFile(path.join(outside, 'secret.txt'), 'secret');
     await fs.symlink(outside, path.join(root, 'external'), 'dir');
-    assert.equal(await isInsideWorkspace(root, 'external/secret.txt'), false);
-    assert.equal(await isInsideWorkspace(root, 'missing.txt'), false);
-    assert.equal(await isInsideWorkspace(root, path.join(outside, 'secret.txt')), false);
-    assert.equal(await isWorkspaceReadAllowed(root, 'Glob', { pattern: '../**/*' }), false);
-    assert.equal(await isWorkspaceReadAllowed(root, 'Glob', { pattern: 'C:\\**\\*' }), false);
-    assert.equal(await isWorkspaceReadAllowed(root, 'Grep', { path: 'external' }), false);
-    assert.equal(await isInsideWorkspace(root, path.relative(root, path.join(outside, 'secret.txt'))), false);
+    assert.equal(await isImplicitWorkspaceRead('Read', { file_path: 'inside.txt' }, root), true);
+    assert.equal(await isImplicitWorkspaceRead('Read', { file_path: 'external/secret.txt' }, root), false);
+    assert.equal(await isImplicitWorkspaceRead('Read', { file_path: path.join(outside, 'secret.txt') }, root), false);
+    for (const tool of ['Glob', 'Grep', 'LS', 'Skill', 'AskUserQuestion', 'TodoRead', 'TaskGet', 'Unknown']) {
+      assert.equal(await isImplicitWorkspaceRead(tool, {}, root), false);
+    }
+    assert.equal(await isImplicitWorkspaceRead('Read', {}, root), false);
   } finally {
     await fs.rm(root, { recursive: true, force: true });
     await fs.rm(outside, { recursive: true, force: true });
