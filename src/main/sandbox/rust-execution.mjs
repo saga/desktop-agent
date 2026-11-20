@@ -358,7 +358,7 @@ export function createRustExecutionService(options) {
     }
     try {
       if (cancelledRequests.has(requestId)) throw new Error("Rust diff application was cancelled.");
-      const supplied = Array.isArray(args.files) ? args.files : [];
+      const supplied = Array.isArray(args?.files) ? args.files : [];
       if (supplied.length > SNAPSHOT_FILE_LIMIT) throw new Error("Requested Rust diff contains too many paths.");
       const expected = snapshot.changes;
       const normalize = (items) => items

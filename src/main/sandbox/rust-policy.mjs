@@ -47,10 +47,10 @@ export function validateRustInput(input) {
 }
 
 export function isSafeRelativePath(value) {
-  if (typeof value !== "string" || !value || value.includes("\0")) return false;
-  const normalized = value.replace(/\\/g, "/");
-  if (normalized.startsWith("/") || /^[a-zA-Z]:/.test(normalized)) return false;
-  const parts = normalized.split("/");
+  if (typeof value !== "string" || !value || value.includes("\0") || value.includes("\\")) return false;
+  if (/[<>:"|?*]/.test(value)) return false;
+  if (value.startsWith("/") || /^[a-zA-Z]:/.test(value)) return false;
+  const parts = value.split("/");
   return parts.every((part) => part && part !== "." && part !== "..");
 }
 

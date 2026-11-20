@@ -28,6 +28,8 @@ test("workspace paths reject absolute paths, traversal, empty segments and drive
   assert.equal(isSafeRelativePath("/etc/passwd"), false);
   assert.equal(isSafeRelativePath("C:\\\\Users\\\\secret"), false);
   assert.equal(isSafeRelativePath("src//main.rs"), false);
+  assert.equal(isSafeRelativePath("src\\\\main.rs"), false);
+  assert.equal(isSafeRelativePath("src/C:secret"), false);
 });
 
 test("snapshot excludes credentials, dependency trees and build output", () => {
