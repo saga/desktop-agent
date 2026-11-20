@@ -209,7 +209,7 @@ async function executeCommand(id, args) {
 
 const tools = [{
   name: 'run_command',
-  description: 'Run a shell command inside the host OS execution sandbox. The working directory is fixed to the approved workspace. Filesystem writes are limited to the workspace and temporary directory; system/toolchain paths are read-only; network access is denied.',
+  description: 'Run trusted developer commands such as git, npm, and system diagnostics inside the host OS execution sandbox. Do not use this tool to execute model-generated scripts or source files; use execute_rust for generated code and workspace transformations. The working directory is fixed to the approved workspace. Filesystem writes are limited to the workspace and temporary directory; system/toolchain paths are read-only; network access is denied.',
   inputSchema: {
     type: 'object',
     properties: {
