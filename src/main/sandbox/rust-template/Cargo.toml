@@ -1,0 +1,8 @@
+[package]
+name = "desktop_agent_task"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+desktop-agent-sdk = { path = "__DESKTOP_AGENT_SDK_PATH__" }

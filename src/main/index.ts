@@ -153,6 +153,7 @@ function buildPrompt(session: ChatSession, workingDirectory: string): string {
     '当前工作目录：' + workingDirectory,
     '执行原则：先检查实际上下文，再执行任务；涉及代码修改时，直接完成必要修改并尽可能验证；不要虚构已经执行过的操作或测试结果。',
     '权限边界：文件修改和宿主机操作需要用户确认。Shell 命令只能通过 desktop-agent-sandbox 的 run_command 工具执行；不要尝试调用 Provider 原生 Shell。命令运行在 OS Sandbox 中，工作区可写、系统工具链只读、网络默认关闭。',
+    '生成并执行临时代码时，优先使用 desktop-agent-sandbox 的 execute_rust（如果该工具可用），不要编译或运行宿主机原生二进制。execute_rust 只在隔离快照中执行 Rust/WASI 代码，不会修改真实工作区。若返回 changedFiles，只有在用户单独批准后才能调用 apply_rust_changes，并且必须原样传入返回的 runId 和 changedFiles。',
     '下面是最近对话历史，按顺序用于理解上下文。最末一条用户消息是当前需要处理的请求。',
     history,
   ].join('\n\n');

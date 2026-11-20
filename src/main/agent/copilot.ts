@@ -28,7 +28,13 @@ function permissionDetails(request: unknown): PermissionRequestInfo {
     if (typeof value.diff === 'string' && value.diff) detail += '\n\n' + value.diff;
   } else if (kind === 'read') detail = String(value.path ?? value.intention ?? '读取文件');
   else if (kind === 'url') detail = String(value.url ?? value.intention ?? '访问网络资源');
-  else if (kind === 'mcp') detail = String(value.serverName ?? 'MCP') + ' / ' + String(value.toolName ?? 'tool');
+  else if (kind === 'mcp') {
+    detail = String(value.serverName ?? 'MCP') + ' / ' + String(value.toolName ?? 'tool');
+    const argumentsValue = value.arguments ?? value.input ?? value.toolInput;
+    if (argumentsValue && typeof argumentsValue === 'object') {
+      try { detail += '\n\n' + JSON.stringify(argumentsValue).slice(0, 12000); } catch { /* omit non-serializable tool arguments */ }
+    }
+  }
   else detail = String(value.intention ?? kind);
   return { provider: 'copilot', action: kind, description: detail };
 }
@@ -44,7 +50,7 @@ export async function runCopilot(input: ProviderRunInput): Promise<ProviderRunRe
         command: input.sandboxMcpServer.command,
         args: input.sandboxMcpServer.args,
         env: input.sandboxMcpServer.env,
-        tools: ['run_command'],
+        tools: ['run_command', 'execute_rust', 'apply_rust_changes'],
         timeout: 30000,
       },
     },

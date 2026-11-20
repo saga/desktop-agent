@@ -94,7 +94,7 @@ function resolveHelperPath(): string {
   throw new Error('没有找到 MXC Sandbox Helper。请重新构建或安装应用。');
 }
 
-function executionPath(nodePath: string): string {
+function executionPath(nodePath: string, additionalPaths: string[] = []): string {
   const defaults = process.platform === 'win32'
     ? [
         path.dirname(nodePath),
@@ -108,8 +108,76 @@ function executionPath(nodePath: string): string {
         '/opt/homebrew/bin', '/usr/local/bin', '/usr/bin', '/bin', '/usr/sbin', '/sbin',
         process.env.PATH ?? '',
       ];
-  return [...new Set(defaults.filter(Boolean).flatMap((entry) => entry.split(path.delimiter)).filter(Boolean))]
+  return [...new Set([...additionalPaths, ...defaults.filter(Boolean).flatMap((entry) => entry.split(path.delimiter)).filter(Boolean)])]
     .join(path.delimiter);
+}
+
+
+interface RustSandboxResources {
+  toolchainDirectory: string;
+  sdkDirectory: string;
+  templateDirectory: string;
+  wasmtimePath: string;
+}
+
+function resolveRustSandboxResources(): RustSandboxResources | null {
+  const projectRoot = path.resolve(moduleDirectory, "../../../");
+  const packagedRoot = path.join(process.resourcesPath, "rust-sandbox");
+  const developmentRoot = path.join(projectRoot, "resources", "rust-sandbox");
+  const roots = [
+    process.env.DESKTOP_AGENT_RUST_SANDBOX_DIR,
+    packagedRoot,
+    developmentRoot,
+  ].filter((value): value is string => Boolean(value));
+
+  const executable = process.platform === "win32" ? ".exe" : "";
+  for (const root of [...new Set(roots)]) {
+    const toolchainDirectory = process.env.DESKTOP_AGENT_RUST_TOOLCHAIN_DIR
+      ? path.resolve(process.env.DESKTOP_AGENT_RUST_TOOLCHAIN_DIR)
+      : path.join(root, "rust-toolchain");
+    const sdkDirectory = process.env.DESKTOP_AGENT_RUST_SDK_DIR
+      ? path.resolve(process.env.DESKTOP_AGENT_RUST_SDK_DIR)
+      : path.join(root, "sdk");
+    const templateDirectory = process.env.DESKTOP_AGENT_RUST_TEMPLATE_DIR
+      ? path.resolve(process.env.DESKTOP_AGENT_RUST_TEMPLATE_DIR)
+      : path.join(root, "template");
+    const wasmtimePath = process.env.DESKTOP_AGENT_WASMTIME_BIN
+      ? path.resolve(process.env.DESKTOP_AGENT_WASMTIME_BIN)
+      : path.join(root, "wasmtime", "wasmtime" + executable);
+    const rustcPath = path.join(toolchainDirectory, "bin", "rustc" + executable);
+    const cargoPath = path.join(toolchainDirectory, "bin", "cargo" + executable);
+    const targetLibrary = path.join(toolchainDirectory, "lib", "rustlib", "wasm32-wasip2", "lib");
+    if (![rustcPath, cargoPath, targetLibrary, sdkDirectory, path.join(sdkDirectory, "Cargo.toml"), templateDirectory, path.join(templateDirectory, "Cargo.toml"), path.join(templateDirectory, "Cargo.lock"), path.join(templateDirectory, "src", "main.rs"), wasmtimePath]
+      .every((candidate) => fs.existsSync(candidate))) continue;
+
+    try {
+      const rustVersion = execFileSync(rustcPath, ["--version"], {
+        encoding: "utf8",
+        timeout: 3000,
+        windowsHide: true,
+      }).trim();
+      const rustMatch = /rustc\s+(\d+)\.(\d+)\.(\d+)/.exec(rustVersion);
+      if (!rustMatch || Number(rustMatch[1]) < 1 || (Number(rustMatch[1]) === 1 && Number(rustMatch[2]) < 85)) {
+        console.warn("[sandbox] Rust execution disabled: Rust 1.85 or later is required.");
+        return null;
+      }
+      const version = execFileSync(wasmtimePath, ["--version"], {
+        encoding: "utf8",
+        timeout: 3000,
+        windowsHide: true,
+      }).trim();
+      const match = /wasmtime\s+(\d+)\.(\d+)\.(\d+)/i.exec(version);
+      if (!match || Number(match[1]) < 50) {
+        console.warn("[sandbox] Rust execution disabled: Wasmtime 50.0.0 or later is required.");
+        return null;
+      }
+      return { toolchainDirectory, sdkDirectory, templateDirectory, wasmtimePath };
+    } catch (error) {
+      console.warn("[sandbox] Rust execution disabled because the bundled Wasmtime runtime could not start.", error);
+      return null;
+    }
+  }
+  return null;
 }
 
 export function createSandboxMcpServer(workspaceDirectory: string): SandboxMcpServer {
@@ -118,11 +186,18 @@ export function createSandboxMcpServer(workspaceDirectory: string): SandboxMcpSe
   }
 
   const nodePath = resolveNode24();
+  const rust = resolveRustSandboxResources();
   return {
     command: nodePath,
     args: [resolveHelperPath()],
     env: {
       PATH: executionPath(nodePath),
+      ...(rust ? {
+        RUST_TOOLCHAIN_DIR: rust.toolchainDirectory,
+        RUST_SDK_DIR: rust.sdkDirectory,
+        RUST_TEMPLATE_DIR: rust.templateDirectory,
+        WASMTIME_BIN: rust.wasmtimePath,
+      } : {}),
       WORKSPACE_DIR: path.resolve(workspaceDirectory),
       HOST_PLATFORM: process.platform,
       NODE_NO_WARNINGS: '1',

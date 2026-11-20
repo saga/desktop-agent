@@ -2,6 +2,7 @@ import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
 import readline from 'node:readline';
+import { createRustExecutionService } from './rust-execution.mjs';
 import {
   getPlatformSupport,
   probe,
@@ -32,6 +33,15 @@ const readonlyPaths = platform === 'win32'
       '/System', '/usr', '/bin', '/sbin', '/Library/Developer/CommandLineTools',
       '/opt/homebrew', '/usr/local', ...pathEntries,
     ])];
+
+for (const entry of [
+  process.env.RUST_TOOLCHAIN_DIR,
+  process.env.RUST_SDK_DIR,
+  process.env.RUST_TEMPLATE_DIR,
+  process.env.WASMTIME_BIN ? path.dirname(process.env.WASMTIME_BIN) : '',
+]) {
+  if (entry && !readonlyPaths.includes(entry)) readonlyPaths.push(entry);
+}
 
 const filesystem = {
   readwritePaths: [workspace, tempDirectory],
@@ -82,7 +92,45 @@ if (platform === 'win32') {
 }
 
 const activeProcesses = new Map();
+const cancelledRequests = new Set();
 const MAX_OUTPUT_BYTES = 1024 * 1024;
+
+const rustResourcesAvailable = Boolean(
+  process.env.RUST_TOOLCHAIN_DIR
+  && process.env.RUST_SDK_DIR
+  && process.env.RUST_TEMPLATE_DIR
+  && process.env.WASMTIME_BIN
+  && fs.existsSync(path.join(process.env.RUST_TOOLCHAIN_DIR, 'bin', platform === 'win32' ? 'cargo.exe' : 'cargo'))
+  && fs.existsSync(path.join(process.env.RUST_TOOLCHAIN_DIR, 'bin', platform === 'win32' ? 'rustc.exe' : 'rustc'))
+  && fs.existsSync(path.join(process.env.RUST_TOOLCHAIN_DIR, 'lib', 'rustlib', 'wasm32-wasip2', 'lib'))
+  && fs.existsSync(path.join(process.env.RUST_SDK_DIR, 'Cargo.toml'))
+  && fs.existsSync(path.join(process.env.RUST_TEMPLATE_DIR ?? '', 'Cargo.toml'))
+  && fs.existsSync(path.join(process.env.RUST_TEMPLATE_DIR ?? '', 'Cargo.lock'))
+  && fs.existsSync(path.join(process.env.RUST_TEMPLATE_DIR ?? '', 'src', 'main.rs'))
+  && fs.existsSync(process.env.WASMTIME_BIN)
+);
+
+const rustTempDirectory = rustResourcesAvailable
+  ? fs.mkdtempSync(path.join(os.tmpdir(), 'desktop-agent-rust-'))
+  : null;
+
+const rustExecution = rustResourcesAvailable
+  ? createRustExecutionService({
+      workspace,
+      tempDirectory: rustTempDirectory,
+      platform,
+      baseRequest: probeRequest,
+      readonlyPaths,
+      rustToolchainDirectory: process.env.RUST_TOOLCHAIN_DIR,
+      rustSdkDirectory: process.env.RUST_SDK_DIR,
+      rustTemplateDirectory: process.env.RUST_TEMPLATE_DIR,
+      wasmtimePath: process.env.WASMTIME_BIN,
+      spawn,
+      activeProcesses,
+      cancelledRequests,
+      maxOutputBytes: MAX_OUTPUT_BYTES,
+    })
+  : null;
 
 function send(message) {
   process.stdout.write(JSON.stringify(message) + '\n');
@@ -97,6 +145,10 @@ function toolError(id, message) {
 }
 
 async function executeCommand(id, args) {
+  if (cancelledRequests.has(id)) {
+    cancelledRequests.delete(id);
+    return toolError(id, 'Command execution was cancelled.');
+  }
   if (!args || typeof args.command !== 'string' || !args.command.trim()) {
     return toolError(id, 'command must be a non-empty string');
   }
@@ -151,6 +203,7 @@ async function executeCommand(id, args) {
     toolError(id, error instanceof Error ? error.message : String(error));
   } finally {
     activeProcesses.delete(id);
+    cancelledRequests.delete(id);
     processHandle?.dispose();
   }
 }
@@ -167,7 +220,7 @@ const tools = [{
     required: ['command'],
     additionalProperties: false,
   },
-}];
+}, ...(rustExecution?.tools ?? [])];
 
 const input = readline.createInterface({ input: process.stdin, crlfDelay: Infinity });
 input.on('line', (line) => {
@@ -181,7 +234,9 @@ input.on('line', (line) => {
     if (!message || message.jsonrpc !== '2.0') return;
 
     if (message.method === 'notifications/cancelled') {
-      const processHandle = activeProcesses.get(message.params?.requestId);
+      const requestId = message.params?.requestId;
+      if (requestId !== undefined) cancelledRequests.add(requestId);
+      const processHandle = activeProcesses.get(requestId);
       if (processHandle) {
         try { processHandle.kill(); } catch { /* already exited */ }
       }
@@ -195,7 +250,7 @@ input.on('line', (line) => {
         result: {
           protocolVersion: message.params?.protocolVersion ?? '2024-11-05',
           capabilities: { tools: {} },
-          serverInfo: { name: 'desktop-agent-mxc-sandbox', version: '1.0.0' },
+          serverInfo: { name: 'desktop-agent-mxc-sandbox', version: '1.1.0' },
         },
       });
       return;
@@ -209,8 +264,25 @@ input.on('line', (line) => {
       send({ jsonrpc: '2.0', id: message.id, result: { tools } });
       return;
     }
-    if (message.method === 'tools/call' && message.params?.name === 'run_command') {
-      await executeCommand(message.id, message.params.arguments);
+    if (message.method === 'tools/call') {
+      const name = message.params?.name;
+      if (name === 'run_command') {
+        await executeCommand(message.id, message.params.arguments);
+        return;
+      }
+      if (name === 'execute_rust' && rustExecution) {
+        const result = await rustExecution.execute(message.id, message.params.arguments);
+        send({ jsonrpc: '2.0', id: message.id, result });
+        cancelledRequests.delete(message.id);
+        return;
+      }
+      if (name === 'apply_rust_changes' && rustExecution) {
+        const result = await rustExecution.apply(message.id, message.params.arguments);
+        send({ jsonrpc: '2.0', id: message.id, result });
+        cancelledRequests.delete(message.id);
+        return;
+      }
+      if (message.id !== undefined) toolError(message.id, 'Unknown or unavailable tool: ' + String(name));
       return;
     }
     if (message.id !== undefined) {
@@ -225,6 +297,10 @@ input.on('close', () => {
   for (const processHandle of activeProcesses.values()) {
     try { processHandle.kill(); } catch { /* already exited */ }
     processHandle.dispose();
+  }
+  void rustExecution?.dispose();
+  if (rustTempDirectory) {
+    try { fs.rmSync(rustTempDirectory, { recursive: true, force: true }); } catch { /* best-effort cleanup */ }
   }
   try { fs.rmSync(tempDirectory, { recursive: true, force: true }); } catch { /* best-effort cleanup */ }
 });

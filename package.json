@@ -11,8 +11,9 @@
     "build:sandbox": "node scripts/copy-sandbox.mjs",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
-    "test": "tsx --test tests/runtime-policy.test.ts",
-    "package": "npm run typecheck && npm run test && npm run build && electron-builder --publish never"
+    "test": "tsx --test tests/runtime-policy.test.ts tests/rust-policy.test.ts",
+    "package": "npm run typecheck && npm run test && npm run build && npm run package:rust-sandbox && electron-builder --publish never",
+    "package:rust-sandbox": "node scripts/package-rust-sandbox.mjs --require"
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.0",
@@ -62,6 +63,13 @@
       "target": [
         "dmg",
         "zip"
+      ],
+      "binaries": [
+        "Contents/Resources/rust-sandbox/rust-toolchain/bin/rustc",
+        "Contents/Resources/rust-sandbox/rust-toolchain/bin/cargo",
+        "Contents/Resources/rust-sandbox/rust-toolchain/lib/**/*.dylib",
+        "Contents/Resources/rust-sandbox/rust-toolchain/lib/rustlib/**/bin/rust-lld",
+        "Contents/Resources/rust-sandbox/wasmtime/wasmtime"
       ]
     },
     "win": {
@@ -73,6 +81,15 @@
       "target": [
         "AppImage"
       ]
-    }
+    },
+    "extraResources": [
+      {
+        "from": "resources/rust-sandbox",
+        "to": "rust-sandbox",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ]
   }
 }

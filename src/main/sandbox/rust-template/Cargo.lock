@@ -1,0 +1,12 @@
+version = 4
+
+[[package]]
+name = "desktop-agent-sdk"
+version = "0.1.0"
+
+[[package]]
+name = "desktop_agent_task"
+version = "0.1.0"
+dependencies = [
+ "desktop-agent-sdk",
+]
